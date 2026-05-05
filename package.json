@@ -1,0 +1,53 @@
+{
+  "name": "digicap-zero",
+  "private": true,
+  "version": "1.0.9",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx dev-server.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit",
+    "cap:sync": "npx cap sync",
+    "cap:open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/browser": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@google/genai": "latest",
+    "@lemonsqueezy/lemonsqueezy.js": "latest",
+    "@tailwindcss/typography": "latest",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/jsonwebtoken": "^9.0.7",
+    "bcryptjs": "latest",
+    "body-parser": "latest",
+    "cors": "latest",
+    "express": "latest",
+    "firebase": "latest",
+    "firebase-admin": "latest",
+    "jsonwebtoken": "latest",
+    "lucide-react": "latest",
+    "framer-motion": "latest",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "latest",
+    "recharts": "latest",
+    "tsx": "latest",
+    "uuid": "latest",
+    "xlsx": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "latest",
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "@vercel/node": "latest",
+    "@vitejs/plugin-react": "^4.3.3",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DIGICAP</string>
+    <string name="title_activity_main">DIGICAP</string>
+    <string name="package_name">com.miqvalitet.digicap</string>
+    <string name="custom_url_scheme">com.miqvalitet.digicap</string>
+</resources>

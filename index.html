@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#020617" />
+    
+    <!-- iOS Specific Settings for Native Feel -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DIGICAP">
+    <meta name="format-detection" content="telephone=no">
+    
+    <title>DIGICAP - Professionell SPC & Kapabilitetsanalys (Cpk, Cmk)</title>
+    <meta name="description" content="DIGICAP är ett professionellt verktyg för statistisk processstyrning (SPS/SPC) och kapabilitetsanalys (Cp, Cpk, Cm, Cmk). Följer IATF 16949 och VDA-standarder." />
+    <meta name="keywords" content="SPC, SPS, Cpk, Cmk, Cp, Cm, kapabilitetsanalys, statistisk processstyrning, IATF 16949, VDA 6.3, Six Sigma, kvalitetskontroll" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://app.digicap.app/">
+    <meta property="og:title" content="DIGICAP - Professionell SPC & Kapabilitetsanalys">
+    <meta property="og:description" content="Snabba och noggranna kapabilitetsstudier direkt i mobilen eller webbläsaren. Exportera PDF-rapporter enligt industristandard.">
+    <meta property="og:image" content="/og-image.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="DIGICAP - Professionell SPC & Kapabilitetsanalys">
+    <meta property="twitter:description" content="Verktyget för kvalitetsingenjörer. Beräkna Cpk och Cmk på sekunder.">
+    
+    <!-- <script src="https://app.lemonsqueezy.com/js/lemon.js" defer></script> -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBzdHlsZT0iYmFja2dyb3VuZC1jb2xvcjogIzFlNDBhZjsgYm9yZGVyLXJhZGl1czDogMjUlOyI+PHBhdGggZD0iTTM2OCAxyzIwOEgzNTJWMTkyaDBWMzc2SDM2OFoiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMjg4IDE2MEgyNzJWMTkyaDBWMzc2SDI4OFoiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMjA4IDEyOEgxOTJWMTkyaDBWMzc2SDIwOFoiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMTI4IDI1NkgxMTJWMzc2aDE2WiIgZmlsbD0iI2ZmZiIvPjwvc3ZnPg==" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBzdHlsZT0iYmFja2dyb3VuZC1jb2xvcjogIzFlNDBhZjsgYm9yZGVyLXJhZGl1czDogMjUlOyI+PHBhdGggZD0iTTM2OCAxyzIwOEgzNTJWMTkyaDBWMzc2SDM2OFoiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMjg4IDE2MEgyNzJWMTkyaDBWMzc2SDI4OFoiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMjA4IDEyOEgxOTJWMTkyaDBWMzc2SDIwOFoiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMTI4IDI1NkgxMTJWMzc2SDI2WiIgZmlsbD0iI2ZmZiIvPjwvc3ZnPg==" />
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <script>
+      // Early teaser detection for debugging
+      (function() {
+        const params = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '');
+        const isTeaser = params.get('teaser') === 'true' || params.get('game') === 'true' || 
+                         hashParams.get('teaser') === 'true' || hashParams.get('game') === 'true';
+        console.log('[Early Detection] isTeaser:', isTeaser);
+        if (isTeaser) {
+          document.documentElement.classList.add('is-teaser');
+        }
+      })();
+    </script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
