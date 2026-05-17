@@ -1,0 +1,8 @@
+{
+	"appId": "com.miqvalitet.digicap",
+	"appName": "DIGICAP",
+	"webDir": "dist",
+	"packageClassList": [
+		"CAPBrowserPlugin"
+	]
+}
