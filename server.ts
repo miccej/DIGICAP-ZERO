@@ -34,10 +34,10 @@ function getAdminDb() {
   }
 }
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
+const PORT = 3000;
 
+async function startServer() {
   console.log(`[BOOT] DigiCap v10.0 STARTING...`);
 
   // 1. Middlewares
@@ -267,25 +267,34 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`✅ SERVER V10.0 ADMIN READY ON PORT ${PORT}`);
-    
-    // Starta Smee-reläet automatiskt BARA I UTVECKLING
-    if (process.env.NODE_ENV !== "production") {
-      const smee = new SmeeClient({
-        source: 'https://smee.io/X6tY7d2Z3r4v5w8q',
-        target: `http://localhost:${PORT}/api/webhook`,
-        logger: {
-          info: (msg: string) => console.log(`[SMEE-INFO] ${msg}`),
-          error: (msg: string) => console.error(`[SMEE-ERROR] ${msg}`)
-        }
-      });
-      smee.start();
-      console.log(`[SMEE] Forwarding from smee.io to local /api/webhook`);
-    }
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`✅ SERVER V10.0 ADMIN READY ON PORT ${PORT}`);
+      
+      // Starta Smee-reläet automatiskt BARA I UTVECKLING
+      if (process.env.NODE_ENV !== "production") {
+        const smee = new SmeeClient({
+          source: 'https://smee.io/X6tY7d2Z3r4v5w8q',
+          target: `http://localhost:${PORT}/api/webhook`,
+          logger: {
+            info: (msg: string) => console.log(`[SMEE-INFO] ${msg}`),
+            error: (msg: string) => console.error(`[SMEE-ERROR] ${msg}`)
+          }
+        });
+        smee.start();
+        console.log(`[SMEE] Forwarding from smee.io to local /api/webhook`);
+      }
+    });
+  }
+
+  // End of startServer
+}
+
+// Starta servern bara om vi inte är i en serverless miljö (Vercel hanterar detta själv)
+if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
+  startServer().catch(err => {
+    console.error("CRITICAL BOOT ERROR:", err);
   });
 }
 
-startServer().catch(err => {
-  console.error("CRITICAL BOOT ERROR:", err);
-});
+export default app;
