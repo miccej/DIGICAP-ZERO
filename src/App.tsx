@@ -726,8 +726,8 @@ const App: React.FC = () => {
 
   const [studyInfo, setStudyInfo] = useState<StudyInfo>({
     id: uuidv4(),
-    partNumber: '207-554',
-    revision: '001',
+    partNumber: '',
+    revision: '',
     machineNumber: '',
     date: new Date().toISOString().split('T')[0],
     studyType: 'Machine',
@@ -1297,8 +1297,8 @@ const App: React.FC = () => {
       setActiveMeasureId(defaultMeasure.id); 
       setStudyInfo({ 
           id: uuidv4(),
-          partNumber: '207-554', 
-          revision: '001', 
+          partNumber: '', 
+          revision: '', 
           machineNumber: '', 
           date: new Date().toISOString().split('T')[0], 
           studyType: 'Machine', 
