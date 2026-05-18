@@ -11,7 +11,7 @@ import firebaseConfig from "./firebase-applet-config.json";
 // --- FIREBASE ADMIN SETUP ---
 function getAdminDb() {
   try {
-    const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUN;
+    const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT;
     
     if (!rawKey) {
       console.warn("[WARN] FIREBASE_SERVICE_ACCOUNT_KEY not found in environment.");
@@ -59,7 +59,7 @@ async function startServer() {
       status: "online", 
       version: "16.0-ADMIN-READY",
       node_env: process.env.NODE_ENV,
-      secret_status: !!(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUN),
+      secret_status: !!(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT),
       time: new Date().toISOString()
     });
   });

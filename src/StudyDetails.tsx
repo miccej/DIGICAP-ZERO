@@ -83,7 +83,7 @@ const StudyDetails: React.FC<StudyDetailsProps> = ({ info, setInfo, language, th
                     type="text"
                     value={info.partNumber}
                     onChange={(e) => handleChange('partNumber', e.target.value)}
-                    placeholder="207-554"
+                    placeholder="-"
                     className={`w-full px-3 md:px-4 py-1.5 md:py-2 h-[36px] md:h-[40px] text-sm font-medium placeholder:text-slate-600 transition-all border-2 ${inputClass}`}
                 />
             </div>
@@ -97,7 +97,7 @@ const StudyDetails: React.FC<StudyDetailsProps> = ({ info, setInfo, language, th
                     type="text"
                     value={info.revision}
                     onChange={(e) => handleChange('revision', e.target.value)}
-                    placeholder="001"
+                    placeholder="-"
                     className={`w-full px-3 md:px-4 py-1.5 md:py-2 h-[36px] md:h-[40px] text-sm font-medium placeholder:text-slate-600 transition-all border-2 ${inputClass}`}
                 />
             </div>

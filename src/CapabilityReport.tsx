@@ -247,9 +247,10 @@ const CapabilityReport: React.FC<CapabilityReportProps> = ({
 
     // Estimate params for non-normal if needed
     const values = rawData?.map(d => d.value) || [];
-    const logNormalParams = distribution === 'LogNormal' && values.length >= 2 ? DistMath.estimateLogNormalParams(values) : null;
-    const weibullParams = distribution === 'Weibull' && values.length >= 2 ? DistMath.estimateWeibullParams(values) : null;
-    const rayleighParams = distribution === 'Rayleigh' && values.length >= 2 ? DistMath.estimateRayleighParams(values) : null;
+    const normSigma = calculationMethod === 'within' ? stats.sigmaWithin : stats.stdDev;
+    const logNormalParams = DistMath.estimateLogNormalParams(values);
+    const weibullParams = DistMath.estimateWeibullParams(values);
+    const rayleighParams = DistMath.estimateRayleighParams(values);
 
     const points: any[] = [];
     for (let i = 0; i < numCurvePoints; i++) {
@@ -257,22 +258,26 @@ const CapabilityReport: React.FC<CapabilityReportProps> = ({
       const point: any = { midPoint: x };
 
       if (!isOverlay) {
+        // Calculate all curves for background visual reference
+        const cNorm = DistMath.normalPDF(x, stats.mean, normSigma);
+        const cLog = DistMath.logNormalPDF(x, logNormalParams.mu, logNormalParams.sigma);
+        const cWei = DistMath.weibullPDF(x, weibullParams.shape, weibullParams.scale);
+        const cRay = DistMath.rayleighPDF(x, rayleighParams.sigma);
+
+        point.curveNormal = (isZeroBounded && x < 0 ? 0 : cNorm) * scalingFactor;
+        point.curveLogNormal = (isZeroBounded && x < 0 ? 0 : cLog) * scalingFactor;
+        point.curveWeibull = (isZeroBounded && x < 0 ? 0 : cWei) * scalingFactor;
+        point.curveRayleigh = (isZeroBounded && x < 0 ? 0 : cRay) * scalingFactor;
+
+        // The "actual" one being analyzed
         let curveVal = 0;
-        if (distribution === 'Normal') {
-          const curveSigma = calculationMethod === 'within' ? stats.sigmaWithin : stats.stdDev;
-          curveVal = DistMath.normalPDF(x, stats.mean, curveSigma);
-        } else if (distribution === 'LogNormal' && logNormalParams) {
-          curveVal = DistMath.logNormalPDF(x, logNormalParams.mu, logNormalParams.sigma);
-        } else if (distribution === 'Weibull' && weibullParams) {
-          curveVal = DistMath.weibullPDF(x, weibullParams.shape, weibullParams.scale);
-        } else if (distribution === 'Rayleigh' && rayleighParams) {
-          curveVal = DistMath.rayleighPDF(x, rayleighParams.sigma);
-        } else if (distribution === 'Folded') {
-          curveVal = DistMath.foldedNormalPDF(x, stats.mean, stats.stdDev);
-        } else {
-          // Fallback to normal
-          curveVal = DistMath.normalPDF(x, stats.mean, stats.stdDev);
-        }
+        if (distribution === 'Normal') curveVal = cNorm;
+        else if (distribution === 'LogNormal') curveVal = cLog;
+        else if (distribution === 'Weibull') curveVal = cWei;
+        else if (distribution === 'Rayleigh') curveVal = cRay;
+        else if (distribution === 'Folded') curveVal = DistMath.foldedNormalPDF(x, stats.mean, stats.stdDev);
+        else curveVal = cNorm;
+        
         point.actualCurve = (isZeroBounded && x < 0 ? 0 : curveVal) * scalingFactor;
       } else if (overlayMeasures) {
         overlayMeasures.forEach((m, idx) => {
@@ -433,6 +438,15 @@ const CapabilityReport: React.FC<CapabilityReportProps> = ({
               <YAxis hide yAxisId={0} />
               
               {!isOverlay && (
+                <>
+                  <Area type="monotone" dataKey="curveNormal" stroke="#94a3b8" strokeWidth={1} fill="#94a3b8" fillOpacity={0.03} dot={false} isAnimationActive={false} connectNulls />
+                  <Area type="monotone" dataKey="curveLogNormal" stroke="#6366f1" strokeWidth={1} fill="#6366f1" fillOpacity={0.03} dot={false} isAnimationActive={false} connectNulls />
+                  <Area type="monotone" dataKey="curveWeibull" stroke="#ec4899" strokeWidth={1} fill="#ec4899" fillOpacity={0.03} dot={false} isAnimationActive={false} connectNulls />
+                  <Area type="monotone" dataKey="curveRayleigh" stroke="#10b981" strokeWidth={1} fill="#10b981" fillOpacity={0.03} dot={false} isAnimationActive={false} connectNulls />
+                </>
+              )}
+
+              {!isOverlay && (
                 <Bar 
                   dataKey="count" 
                   fill={activeTheme.hex} 
@@ -443,7 +457,7 @@ const CapabilityReport: React.FC<CapabilityReportProps> = ({
                   isAnimationActive={false} 
                 />
               )}
-              {!isOverlay && <Area type="monotone" dataKey="actualCurve" stroke={activeTheme.stroke} strokeWidth={2} fill={activeTheme.hex} fillOpacity={0.15} dot={false} isAnimationActive={false} connectNulls />}
+              {!isOverlay && <Area type="monotone" dataKey="actualCurve" stroke={activeTheme.stroke} strokeWidth={2.5} fill={activeTheme.hex} fillOpacity={0.2} dot={false} isAnimationActive={false} connectNulls />}
               
               {isOverlay && overlayMeasures?.map((m, idx) => (
                 <Area 
