@@ -1548,7 +1548,6 @@ const App: React.FC = () => {
             <button
               onClick={() => {
                 setShowWelcomeModal(false);
-                setShowLanding(true);
               }}
               className={`w-full py-4 rounded-xl font-bold text-lg transition-all active:scale-95 shadow-lg ${currentTheme.newStudy} text-white uppercase tracking-wider`}
             >
