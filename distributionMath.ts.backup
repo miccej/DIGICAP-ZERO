@@ -1,0 +1,407 @@
+
+import { DistributionType } from './types';
+
+/**
+ * DISTRIBUTION MATH SERVICE
+ * Contains PDF functions and percentile-based capability logic for non-normal distributions.
+ */
+
+export interface DistributionParams {
+  mean: number;
+  stdDev: number;
+  shape?: number;
+  scale?: number;
+  location?: number;
+}
+
+/**
+ * Normal Distribution
+ */
+export const normalPDF = (x: number, mean: number, stdDev: number): number => {
+  if (stdDev <= 0) return 0;
+  return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mean) / stdDev, 2));
+};
+
+/**
+ * Log-Normal Distribution
+ */
+export const logNormalPDF = (x: number, mu: number, sigma: number): number => {
+  if (x <= 0 || sigma <= 0) return 0;
+  const lnX = Math.log(x);
+  return (1 / (x * sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-Math.pow(lnX - mu, 2) / (2 * Math.pow(sigma, 2)));
+};
+
+/**
+ * Weibull Distribution (3-parameter with location)
+ */
+export const weibullPDF = (x: number, shape: number, scale: number, location: number = 0): number => {
+  const t = x - location;
+  if (t < 0 || shape <= 0 || scale <= 0) return 0;
+  return (shape / scale) * Math.pow(t / scale, shape - 1) * Math.exp(-Math.pow(t / scale, shape));
+};
+
+/**
+ * Rayleigh Distribution
+ */
+export const rayleighPDF = (x: number, sigma: number): number => {
+  if (x < 0 || sigma <= 0) return 0;
+  return (x / Math.pow(sigma, 2)) * Math.exp(-Math.pow(x, 2) / (2 * Math.pow(sigma, 2)));
+};
+
+/**
+ * Folded Normal PDF
+ */
+export const foldedNormalPDF = (x: number, mu: number, sigma: number): number => {
+  if (x < 0 || sigma <= 0) return 0;
+  return normalPDF(x, mu, sigma) + normalPDF(x, -mu, sigma);
+};
+
+/**
+ * Estimate parameters for Log-Normal from data
+ */
+export const estimateLogNormalParams = (values: number[]) => {
+  const positiveValues = values.filter(v => v > 0);
+  if (positiveValues.length < 2) return { mu: 0, sigma: 1 };
+  const lnValues = positiveValues.map(v => Math.log(v));
+  const mu = lnValues.reduce((a, b) => a + b, 0) / lnValues.length;
+  const variance = lnValues.reduce((a, b) => a + Math.pow(b - mu, 2), 0) / (lnValues.length - 1);
+  return { mu, sigma: Math.sqrt(variance) };
+};
+
+/**
+ * Gamma function implementation using Lanczos approximation
+ */
+export const gamma = (z: number): number => {
+  const g = 7;
+  const p = [
+    0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61502916214059, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7
+  ];
+
+  if (z < 0.5) return Math.PI / (Math.sin(Math.PI * z) * gamma(1 - z));
+  
+  z -= 1;
+  let x = p[0];
+  for (let i = 1; i < g + 2; i++) {
+    x += p[i] / (z + i);
+  }
+  const t = z + g + 0.5;
+  return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
+};
+
+/**
+ * Estimate parameters for Weibull (3-parameter)
+ * Uses a more stable approach to match Minitab/Q-DAS logic.
+ */
+export const estimateWeibullParams = (values: number[]) => {
+  if (values.length < 2) return { shape: 1, scale: 1, location: 0 };
+  
+  const sorted = [...values].sort((a, b) => a - b);
+  const n = sorted.length;
+  const x1 = sorted[0];
+  const xmValue = sorted[Math.floor(n / 2)];
+  const xnValue = sorted[n - 1];
+  const dataRange = xnValue - x1 || 0.001;
+  
+  // Robust Location Estimation
+  let location = 0;
+  const denom = x1 + xnValue - 2 * xmValue;
+  if (Math.abs(denom) > 1e-9) {
+    location = (x1 * xnValue - xmValue * xmValue) / denom;
+  } else {
+    location = x1 - dataRange * 0.1;
+  }
+  
+  // Strict Guard for location
+  // Location must be less than min value
+  const maxSafeLocation = x1 - dataRange * 0.01;
+  if (location >= x1) {
+    location = maxSafeLocation;
+  }
+  
+  // Bound location parameter to reasonable range
+  const minLocLimit = x1 - dataRange * 5;
+  location = Math.max(minLocLimit, Math.min(maxSafeLocation, location));
+  
+  if (!isFinite(location) || isNaN(location)) location = x1 - dataRange * 0.1;
+
+  const shiftedValues = values.map(v => Math.max(1e-10, v - location));
+  
+  // Improved Shape estimation (MLE approach)
+  let k = 1.2; 
+  try {
+    const lnSum = shiftedValues.reduce((a, b) => a + Math.log(b), 0);
+    // Use a simpler estimator if Newton-Raphson is unstable
+    const meanLn = lnSum / n;
+    
+    for (let i = 0; i < 50; i++) {
+      let s0 = 0, s1 = 0, s2 = 0;
+      for (const xVal of shiftedValues) {
+        const xk = Math.pow(xVal, k);
+        const lnx = Math.log(xVal);
+        s0 += xk;
+        s1 += xk * lnx;
+        s2 += xk * lnx * lnx;
+      }
+      
+      if (s0 === 0 || !isFinite(s0)) {
+        k = 1.5; // Fallback
+        break;
+      }
+      
+      const f = 1/k + meanLn - s1/s0;
+      const df = -1/(k * k) - (s2 * s0 - s1 * s1) / (s0 * s0);
+      
+      if (!isFinite(f) || !isFinite(df) || df === 0) break;
+      
+      const step = f / df;
+      const dampedStep = Math.max(-0.4 * k, Math.min(0.4 * k, step)); 
+      k = k - dampedStep;
+      
+      if (Math.abs(step) < 1e-6) break;
+      if (k < 0.1) { k = 0.1; break; }
+      if (k > 25) { k = 25; break; }
+    }
+  } catch (e) {
+    k = 1.2;
+  }
+  
+  const shape = (isFinite(k) && k > 0) ? k : 1.2;
+  const sumXk = shiftedValues.reduce((a, b) => a + Math.pow(b, shape), 0);
+  const scaleRaw = Math.pow(sumXk / n, 1 / shape);
+  const scale = (isFinite(scaleRaw) && scaleRaw > 0) ? scaleRaw : dataRange;
+  
+  return { shape, scale, location };
+};
+
+/**
+ * Estimate Rayleigh parameter
+ */
+export const estimateRayleighParams = (values: number[]) => {
+  const positiveValues = values.filter(v => v > 0);
+  if (positiveValues.length === 0) return { sigma: 1 };
+  const sumSq = positiveValues.reduce((a, b) => a + Math.pow(b, 2), 0);
+  return { sigma: Math.sqrt(sumSq / (2 * positiveValues.length)) };
+};
+
+/**
+ * Percentile Calculation helpers
+ */
+const erfc = (x: number) => {
+  const z = Math.abs(x);
+  const t = 1.0 / (1.0 + 0.5 * z);
+  const ans = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 +
+    t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 +
+    t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+  return x >= 0 ? ans : 2.0 - ans;
+};
+
+const invErfc = (x: number) => {
+  if (x >= 2) return -100;
+  if (x <= 0) return 100;
+  let xx = (x < 1) ? x : 2 - x;
+  let t = Math.sqrt(-2 * Math.log(xx / 2));
+  let res = -0.70711 * ((2.30753 + t * 0.27061) / (1 + t * (0.99229 + t * 0.04481)) - t);
+  for (let j = 0; j < 2; j++) {
+    let err = erfc(res) - xx;
+    res += err / (1.12837916709551257 * Math.exp(-res * res));
+  }
+  return x < 1 ? res : -res;
+};
+
+export const normalQuantile = (p: number, mu: number, sigma: number) => {
+  return mu - sigma * Math.sqrt(2) * invErfc(2 * p);
+};
+
+const getProbFromSigma = (z: number) => {
+  // Phi(-z) = 0.5 * erfc(z / sqrt(2))
+  return 0.5 * erfc(z / Math.sqrt(2));
+};
+
+/**
+ * Calculate refined capability indices using the Quantile Method (ISO 22514-2)
+ */
+export const calculateNonNormalCapability = (
+  values: number[],
+  type: string,
+  limits: { lsl?: number, usl?: number },
+  sigmaLevel: number = 3
+) => {
+  const probLo = getProbFromSigma(sigmaLevel);
+  const probHi = 1 - probLo;
+
+  let qLo = 0; // Lower tail (eq to -Z sigma)
+  let p50 = 0; // Median
+  let qHi = 1; // Upper tail (eq to +Z sigma)
+  
+  if (type === 'LogNormal') {
+    const { mu, sigma } = estimateLogNormalParams(values);
+    qLo = Math.exp(normalQuantile(probLo, mu, sigma));
+    p50 = Math.exp(mu);
+    qHi = Math.exp(normalQuantile(probHi, mu, sigma));
+  } else if (type === 'Weibull') {
+    const { shape, scale, location } = estimateWeibullParams(values);
+    // Quantile function for 3-param Weibull: Q(p) = location + scale * (-ln(1-p))^(1/shape)
+    qLo = location + scale * Math.pow(-Math.log(1 - probLo), 1 / shape);
+    p50 = location + scale * Math.pow(Math.log(2), 1 / shape);
+    qHi = location + scale * Math.pow(-Math.log(1 - probHi), 1 / shape);
+  } else if (type === 'Rayleigh') {
+    const { sigma } = estimateRayleighParams(values);
+    qLo = sigma * Math.sqrt(-2 * Math.log(1 - probLo));
+    p50 = sigma * Math.sqrt(Math.log(4));
+    qHi = sigma * Math.sqrt(-2 * Math.log(1 - probHi));
+  } else {
+    // Fallback to normal for others for now
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const stdDev = Math.sqrt(values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (values.length - 1));
+    qLo = mean - sigmaLevel * stdDev;
+    p50 = mean;
+    qHi = mean + sigmaLevel * stdDev;
+  }
+
+  const { lsl, usl } = limits;
+  let cp: number | null = null;
+  let cpk = 0;
+  
+  // Guard against division by zero (zero variance data)
+  const range = qHi - qLo;
+  const upperRange = qHi - p50;
+  const lowerRange = p50 - qLo;
+
+  if (usl !== undefined && lsl !== undefined) {
+    cp = range > 0 ? (usl - lsl) / range : 0;
+    const cpu = upperRange > 0 ? (usl - p50) / upperRange : (usl > p50 ? 100 : 0);
+    const cpl = lowerRange > 0 ? (p50 - lsl) / lowerRange : (p50 > lsl ? 100 : 0);
+    cpk = Math.min(cpu, cpl);
+  } else if (usl !== undefined) {
+    cpk = upperRange > 0 ? (usl - p50) / upperRange : (usl > p50 ? 100 : 0);
+  } else if (lsl !== undefined) {
+    cpk = lowerRange > 0 ? (p50 - lsl) / lowerRange : (p50 > lsl ? 100 : 0);
+  }
+
+  return { cp, cpk, qLo, p50, qHi };
+};
+
+/**
+ * Perform a simple Kolmogorov-Smirnov inspired fit test
+ * Returns a score where lower is better (0 to 1 range approx)
+ */
+export const calculateFitScore = (values: number[], type: DistributionType): number => {
+  if (values.length < 5) return 0.5;
+  const sorted = [...values].sort((a, b) => a - b);
+  const n = sorted.length;
+  
+  let score = 0;
+  
+  if (type === 'Normal') {
+    const mean = values.reduce((a, b) => a + b, 0) / n;
+    const stdDev = Math.sqrt(values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (n - 1));
+    if (stdDev === 0) return 0;
+    
+    for (let i = 0; i < n; i++) {
+        const pEmpirical = (i + 1) / n;
+        const z = (sorted[i] - mean) / stdDev;
+        // Simple CDF approx
+        const pTheoretical = 0.5 * (1 + Math.tanh(Math.sqrt(2 / Math.PI) * (z + 0.044715 * Math.pow(z, 3))));
+        score += Math.abs(pEmpirical - pTheoretical);
+    }
+  } else if (type === 'Weibull') {
+    try {
+      const { shape, scale, location } = estimateWeibullParams(values);
+      const safeScale = Math.max(0.000001, scale);
+      for (let i = 0; i < n; i++) {
+          const pEmpirical = (i + 1) / n;
+          const x = sorted[i] - location;
+          if (x <= 0) {
+              score += 1;
+              continue;
+          }
+          const pTheoretical = 1 - Math.exp(-Math.pow(x / safeScale, Math.max(0.01, shape)));
+          score += (isFinite(pTheoretical) ? Math.abs(pEmpirical - pTheoretical) : 1);
+      }
+    } catch (e) {
+      return 1.0; 
+    }
+  } else if (type === 'LogNormal') {
+    try {
+      const { mu, sigma } = estimateLogNormalParams(values);
+      const safeSigma = Math.max(0.0001, sigma);
+      for (let i = 0; i < n; i++) {
+          const pEmpirical = (i + 1) / n;
+          if (sorted[i] <= 0) {
+              score += 1;
+              continue;
+          }
+          const z = (Math.log(sorted[i]) - mu) / safeSigma;
+          const pTheoretical = 0.5 * (1 + Math.tanh(Math.sqrt(2 / Math.PI) * (z + 0.044715 * Math.pow(z, 3))));
+          score += (isFinite(pTheoretical) ? Math.abs(pEmpirical - pTheoretical) : 1);
+      }
+    } catch (e) {
+      return 1.0;
+    }
+  } else {
+      return 0.5;
+  }
+  
+  return score / n;
+};
+
+export const calculateSkewness = (values: number[]) => {
+  const n = values.length;
+  if (n < 3) return 0;
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  const m2 = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
+  const m3 = values.reduce((a, b) => a + Math.pow(b - mean, 3), 0) / n;
+  if (m2 === 0) return 0;
+  return m3 / Math.pow(m2, 1.5);
+};
+
+/**
+ * Suggest best distribution based on fit score and data characteristics
+ */
+export const suggestBestDistribution = (values: number[]): DistributionType => {
+    if (values.length < 5) return 'Normal';
+    
+    const skew = Math.abs(calculateSkewness(values));
+    const normal = calculateFitScore(values, 'Normal');
+    const weibull = calculateFitScore(values, 'Weibull');
+    const logNormal = calculateFitScore(values, 'LogNormal') * 1.1; 
+    
+    // If data is very skewed, strongly favor non-normal
+    if (skew > 0.5) {
+        if (weibull <= logNormal) return 'Weibull';
+        return 'LogNormal';
+    }
+    
+    if (normal <= weibull && normal <= logNormal) return 'Normal';
+    if (weibull <= logNormal) return 'Weibull';
+    return 'LogNormal';
+};
+
+/**
+ * Random Number Generators for Simulations
+ */
+
+export const generateNormalValue = (mean: number, stdDev: number): number => {
+  const u = 1 - Math.random(); // Converting [0,1) to (0,1]
+  const v = Math.random();
+  const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  return z * stdDev + mean;
+};
+
+export const generateLogNormalValue = (mu: number, sigma: number): number => {
+  return Math.exp(generateNormalValue(mu, sigma));
+};
+
+export const generateWeibullValue = (shape: number, scale: number): number => {
+  return scale * Math.pow(-Math.log(1 - Math.random()), 1 / shape);
+};
+
+export const generateRayleighValue = (sigma: number): number => {
+  return sigma * Math.sqrt(-2 * Math.log(1 - Math.random()));
+};
+
+export const generateFoldedNormalValue = (mu: number, sigma: number): number => {
+  return Math.abs(generateNormalValue(mu, sigma));
+};

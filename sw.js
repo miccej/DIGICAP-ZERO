@@ -6,10 +6,23 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
+        );
+      })
+    ])
+  );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Pass-through fetch
-  event.respondWith(fetch(event.request));
+  // Simple fetch strategy to satisfy PWA requirements
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
+    })
+  );
 });

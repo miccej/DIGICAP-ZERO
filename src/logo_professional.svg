@@ -1,0 +1,27 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="black"/>
+  <g transform="translate(512, 512)">
+    <!-- DIGICAP Text -->
+    <text 
+      x="0" 
+      y="0" 
+      text-anchor="middle" 
+      fill="#f59e0b" 
+      style="font-family: 'Inter', sans-serif; font-weight: 900; font-size: 220px; letter-spacing: -0.05em;"
+    >
+      DIGICAP
+      <tspan dy="-80" dx="10" style="font-size: 60px; fill: #64748b;">®</tspan>
+    </text>
+    
+    <!-- Subtitle: CAPABILITY ANYWHERE -->
+    <text 
+      x="0" 
+      y="60" 
+      text-anchor="middle" 
+      fill="#64748b" 
+      style="font-family: 'Inter', sans-serif; font-weight: 900; font-size: 42px; text-transform: uppercase; letter-spacing: 0.8em;"
+    >
+      CAPABILITY ANYWHERE
+    </text>
+  </g>
+</svg>

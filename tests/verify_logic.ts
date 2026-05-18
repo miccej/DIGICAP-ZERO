@@ -1,6 +1,6 @@
 
-import { calculateStdDev, calculateSigmaWithin, calculateCapabilityIndices } from '../coreLogic';
-import { ProcessLimits } from '../types';
+import { calculateStdDev, calculateSigmaWithin, calculateCapabilityIndices } from '../src/coreLogic';
+import { ProcessLimits } from '../src/types';
 
 /**
  * LOGIC VERIFICATION SUITE

@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "LicenseCode": {
+      "title": "License Code",
+      "description": "Validation codes for unlocking app features",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["trial3", "forever"],
+          "description": "Type of license (3-study trial or permanent)"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether the code is active and usable"
+        }
+      },
+      "required": ["type", "isActive"]
+    },
+    "UserAccess": {
+      "title": "User Access",
+      "description": "Security state for a specific user",
+      "type": "object",
+      "properties": {
+        "isForever": {
+          "type": "boolean",
+          "description": "If true, user has unlimited access"
+        },
+        "trialRemaining": {
+          "type": "number",
+          "description": "Remaining count of trial studies"
+        },
+        "redeemedCodes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of codes already used by this user"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last time access was modified"
+        }
+      },
+      "required": ["isForever", "trialRemaining", "redeemedCodes", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "license_codes/{codeId}": {
+      "schema": "LicenseCode",
+      "description": "Lookup table for activation codes"
+    },
+    "user_access/{userId}": {
+      "schema": "UserAccess",
+      "description": "Individual user permission state"
+    },
+    "webhook_logs/{logId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "eventName": { "type": "string" },
+          "timestamp": { "type": "string" },
+          "payload": { "type": "object" },
+          "email": { "type": "string" }
+        }
+      },
+      "description": "Raw Lemon Squeezy event logs"
+    },
+    "licenses/{email}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "status": { "type": "string" },
+          "orderId": { "type": "string" },
+          "customerId": { "type": "string" },
+          "updatedAt": { "type": "string" },
+          "eventName": { "type": "string" }
+        }
+      },
+      "description": "Consolidated license state per user email"
+    }
+  }
+}

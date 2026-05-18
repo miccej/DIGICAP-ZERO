@@ -9,7 +9,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="DIGICAP">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-touch-fullscreen" content="yes">
     <meta name="format-detection" content="telephone=no">
+    <meta name="HandheldFriendly" content="True">
     
     <title>DIGICAP - Professionell SPC & Kapabilitetsanalys (Cpk, Cmk)</title>
     <meta name="description" content="DIGICAP är ett professionellt verktyg för statistisk processstyrning (SPS/SPC) och kapabilitetsanalys (Cp, Cpk, Cm, Cmk). Följer IATF 16949 och VDA-standarder." />
@@ -50,6 +53,17 @@
 </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="/src/index.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(registration => {
+            console.log('SW registered: ', registration);
+          }).catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+          });
+        });
+      }
+    </script>
   </body>
 </html>

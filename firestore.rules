@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Shared Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_ \\-\\.\\@]+$');
+    }
+
+    // --- LICENSE CODES ---
+    // Only allow checking if a code exists. Users cannot list all codes.
+    match /license_codes/{codeId} {
+      allow get: if isSignedIn() && isValidId(codeId);
+      allow create, list, update, delete: if false; 
+    }
+
+    // --- LEMON SQUEEZY LICENSES ---
+    match /licenses/{email} {
+      // Users can check their own license status using their email as ID
+      allow get: if isSignedIn() && (request.auth.token.email.lower() == email.lower());
+      // Admin (you) can list all licenses
+      allow list: if isSignedIn() && (request.auth.token.email == 'mikael.rj.johansson@gmail.com');
+    }
+
+    // --- WEBHOOK LOGS ---
+    // These are only readable by the admin
+    match /webhook_logs/{logId} {
+      allow read: if isSignedIn() && (request.auth.token.email == 'mikael.rj.johansson@gmail.com');
+    }
+
+    // --- USER ACCESS ---
+    // Users can read their own access state.
+    // They can create it initially with 0 trials.
+    // They can update it ONLY when redeeming a code (this usually needs a more complex logic, 
+    // but we'll enforce schema and ownership here).
+    match /user_access/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      
+      allow create: if isSignedIn() 
+        && request.auth.uid == userId
+        && isValidUserAccess(request.resource.data)
+        && request.resource.data.trialRemaining == 0
+        && request.resource.data.isForever == false;
+
+      // Updating access state should ideally happen via a batch verify or similar.
+      // For now, we allow the user to update their own record IF it matches 
+      // the new state verification (Schema-wise).
+      // REAL SECURITY: This should be handled by a client side that verifies against license_codes
+      allow update: if isSignedIn() 
+        && request.auth.uid == userId
+        && isValidUserAccess(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function isValidUserAccess(data) {
+      return data.keys().hasAll(['isForever', 'trialRemaining', 'redeemedCodes', 'updatedAt'])
+        && data.keys().size() == 4
+        && data.isForever is bool
+        && data.trialRemaining is int
+        && data.redeemedCodes is list
+        && data.updatedAt is timestamp;
+    }
+  }
+}

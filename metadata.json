@@ -1,5 +1,8 @@
 {
   "name": "DIGICAP-ZERO",
   "description": "Professional tool for statistical process control and capability analysis (Cp, Cpk, Cm, Cmk) with real-time visualization, Excel export, Lemon Squeezy subscription management, and team collaboration.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
