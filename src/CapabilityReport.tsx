@@ -247,7 +247,7 @@ const CapabilityReport: React.FC<CapabilityReportProps> = ({
 
     // Estimate params for non-normal if needed
     const values = rawData?.map(d => d.value) || [];
-    const normSigma = calculationMethod === 'within' ? stats.sigmaWithin : stats.stdDev;
+    const normSigma = (calculationMethod === 'within' ? (stats.sigmaWithin ?? stats.stdDev) : stats.stdDev) || 0.0001;
     const logNormalParams = DistMath.estimateLogNormalParams(values);
     const weibullParams = DistMath.estimateWeibullParams(values);
     const rayleighParams = DistMath.estimateRayleighParams(values);

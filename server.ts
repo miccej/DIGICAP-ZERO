@@ -70,58 +70,74 @@ async function startServer() {
   });
 
   // Webhook: Här landar Lemon Squeezy
-  app.post(["/api/webhook", "/api/webhook/"], async (req, res) => {
+  app.post(["/api/webhook", "/api/webhook/", "/api/lemon-squeezy-webhook", "/api/webhooks/lemon"], async (req, res) => {
     console.log("\n[!!!] WEBHOOK INCOMING [!!!]");
+    console.log("[HEADERS]", JSON.stringify(req.headers, null, 2));
     
-    // Skicka ett snyggt JSON-svar direkt
+    // Skicka svar direkt för att undvika timeout hos Lemon Squeezy
     res.status(200).json({ 
       received: true, 
-      at: new Date().toISOString(),
-      server: "DigiCap v15.0"
+      at: new Date().toISOString()
     });
 
     try {
       const payload = req.body;
       if (!payload || !payload.data) {
-        console.error("!!! [WEBHOOK] Empty body received !!!");
+        console.error("!!! [WEBHOOK] Empty or malformed body received !!!");
         return;
       }
 
-      const email = payload.data.attributes?.user_email;
-      const event = payload.meta?.event_name;
-      const status = payload.data.attributes?.status;
-      const variant = payload.data.attributes?.variant_name;
+      const attributes = payload.data.attributes || {};
+      const meta = payload.meta || {};
+      
+      const email = (attributes.user_email || attributes.email || "").toLowerCase().trim();
+      const event = meta.event_name;
+      const status = attributes.status;
+      const variant = attributes.variant_name;
 
       console.log(`[LS-WEBHOOK] Event=${event} Email=${email} Status=${status}`);
 
+      if (!email) {
+        console.warn("[WEBHOOK] No email found in payload, searching meta data...");
+        // Ibland ligger email i meta om det är en manuell resend eller liknande
+        const metaEmail = (meta.custom_data?.email || "").toLowerCase().trim();
+        if (!metaEmail) {
+          console.error("[WEBHOOK] Critical: No email found anywhere in payload.");
+          return;
+        }
+      }
+
       const db = getAdminDb();
       if (db && email) {
-        const docId = email.toLowerCase().trim();
+        const docId = email;
         const updateData: any = {
           email: docId,
-          status: status || "unknown",
-          variant_name: variant || "Digicap",
+          status: status || "active", // Default till active om status saknas (vid t.ex. order_created)
+          variant_name: variant || "Digicap STAT",
           updatedAt: new Date().toISOString(),
           last_event: event,
-          order_id: payload.data.attributes?.order_id || null,
-          license_key: payload.data.attributes?.license_key || null,
-          customer_id: payload.data.attributes?.customer_id || null
+          order_id: attributes.order_id || null,
+          license_key: attributes.license_key || null,
+          customer_id: attributes.customer_id || null,
+          full_payload_received: true
         };
         
         await db.collection("licenses").doc(docId).set(updateData, { merge: true });
-        console.log(`✅ [FIREBASE] Saved ${status} for ${docId}`);
+        console.log(`✅ [FIREBASE] Successfully synced license for ${docId}`);
 
-        // Log the event separately
+        // Logga för historik
         await db.collection("webhook_logs").add({
           eventName: event,
           email: email,
           status: status,
           timestamp: new Date().toISOString(),
-          payload: payload
+          variant: variant
         });
+      } else if (!db) {
+        console.error("❌ [WEBHOOK] Database not initialized. Check FIREBASE_SERVICE_ACCOUNT_KEY in Vercel!");
       }
     } catch (err) {
-      console.error("❌ [WEBHOOK ERROR]:", err);
+      console.error("❌ [WEBHOOK PROCESSING ERROR]:", err);
     }
     console.log("--- [WEBHOOK END] ---\n");
   });
@@ -252,19 +268,21 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`✅ SERVER V15.0 GOLD LISTENING ON PORT ${PORT}`);
+    console.log(`✅ SERVER V10.0 ADMIN READY ON PORT ${PORT}`);
     
-    // Starta Smee-reläet automatiskt
-    const smee = new SmeeClient({
-      source: 'https://smee.io/X6tY7d2Z3r4v5w8q',
-      target: `http://localhost:${PORT}/api/webhook`,
-      logger: {
-        info: (msg: string) => console.log(`[SMEE-INFO] ${msg}`),
-        error: (msg: string) => console.error(`[SMEE-ERROR] ${msg}`)
-      }
-    });
-    smee.start();
-    console.log(`[SMEE] Forwarding from smee.io to local /api/webhook`);
+    // Starta Smee-reläet automatiskt BARA I UTVECKLING
+    if (process.env.NODE_ENV !== "production") {
+      const smee = new SmeeClient({
+        source: 'https://smee.io/X6tY7d2Z3r4v5w8q',
+        target: `http://localhost:${PORT}/api/webhook`,
+        logger: {
+          info: (msg: string) => console.log(`[SMEE-INFO] ${msg}`),
+          error: (msg: string) => console.error(`[SMEE-ERROR] ${msg}`)
+        }
+      });
+      smee.start();
+      console.log(`[SMEE] Forwarding from smee.io to local /api/webhook`);
+    }
   });
 }
 
