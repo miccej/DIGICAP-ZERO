@@ -5,52 +5,58 @@ import path from "path";
 
 export function getAdminDb() {
   try {
-    const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT;
+    // 1. Resolve Database ID first
+    let dbId = process.env.FIRESTORE_DATABASE_ID || "(default)";
     
-    if (!rawKey) {
-      console.warn("[WARN] FIREBASE_SERVICE_ACCOUNT_KEY not found.");
-      return null;
-    }
-
-    let cleanKey = rawKey.trim();
-    if ((cleanKey.startsWith("'") && cleanKey.endsWith("'")) || 
-        (cleanKey.startsWith('"') && cleanKey.endsWith('"'))) {
-      cleanKey = cleanKey.slice(1, -1);
-    }
-
-    if (cleanKey.includes("\\n")) {
-      cleanKey = cleanKey.replace(/\\n/g, "\n");
-    }
-
-    let serviceAccount;
-    try {
-      serviceAccount = JSON.parse(cleanKey);
-    } catch (parseErr) {
-      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Check Vercel environment variables.");
-      throw parseErr;
-    }
-
-    // Safely load firebase-applet-config.json
     let config: any = {};
     try {
       const configPath = path.join(process.cwd(), "firebase-applet-config.json");
       if (fs.existsSync(configPath)) {
         config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+        if (dbId === "(default)" && config.firestoreDatabaseId) {
+          dbId = config.firestoreDatabaseId;
+        }
       }
     } catch (configErr) {
-      console.warn("Failed to load firebase-applet-config.json, using defaults.", configErr);
+      console.warn("[FIREBASE] Could not load config file for dbId identification.");
     }
 
-    const dbId = process.env.FIRESTORE_DATABASE_ID || config.firestoreDatabaseId || "(default)";
-    
-    if (getApps().length === 0) {
-      initializeApp({ 
-        credential: cert(serviceAccount)
-      });
-      console.log(`[FIREBASE] Admin SDK Initialized. Project=${serviceAccount.project_id} DB=${dbId}`);
+    // 2. Check if already initialized
+    let app;
+    if (getApps().length > 0) {
+      app = getApps()[0];
+    } else {
+      // 3. Initialize if needed
+      const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT;
+      
+      if (rawKey) {
+        let cleanKey = rawKey.trim();
+        if ((cleanKey.startsWith("'") && cleanKey.endsWith("'")) || 
+            (cleanKey.startsWith('"') && cleanKey.endsWith('"'))) {
+          cleanKey = cleanKey.slice(1, -1);
+        }
+        if (cleanKey.includes("\\n")) {
+          cleanKey = cleanKey.replace(/\\n/g, "\n");
+        }
+
+        try {
+          const serviceAccount = JSON.parse(cleanKey);
+          app = initializeApp({ 
+            credential: cert(serviceAccount)
+          });
+          console.log(`[FIREBASE] Initialized with Service Account. Project=${serviceAccount.project_id}`);
+        } catch (parseErr) {
+          console.error("[FIREBASE] Parsing service account key failed. Falling back to default.");
+          app = initializeApp();
+        }
+      } else {
+        console.log("[FIREBASE] No Service Account key found. Using Application Default Credentials.");
+        app = initializeApp();
+      }
     }
     
-    return getFirestore(dbId);
+    // 4. Return Firestore with correct dbId targeting
+    return dbId === "(default)" ? getFirestore(app) : getFirestore(app, dbId);
   } catch (err) {
     console.error("Firebase Admin Init Failed:", err);
     return null;
