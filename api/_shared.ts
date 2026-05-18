@@ -1,6 +1,7 @@
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import firebaseConfig from "../firebase-applet-config.json";
+import fs from "fs";
+import path from "path";
 
 export function getAdminDb() {
   try {
@@ -29,7 +30,17 @@ export function getAdminDb() {
       throw parseErr;
     }
 
-    const config = firebaseConfig as any;
+    // Safely load firebase-applet-config.json
+    let config: any = {};
+    try {
+      const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+      if (fs.existsSync(configPath)) {
+        config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+      }
+    } catch (configErr) {
+      console.warn("Failed to load firebase-applet-config.json, using defaults.", configErr);
+    }
+
     const dbId = process.env.FIRESTORE_DATABASE_ID || config.firestoreDatabaseId || "(default)";
     
     if (getApps().length === 0) {
@@ -73,10 +84,21 @@ export async function processWebhook(req: any, res: any) {
 
     const db = getAdminDb();
     let dbStatus = "not_initialized";
-    let dbIdUsed = process.env.FIRESTORE_DATABASE_ID || (firebaseConfig as any).firestoreDatabaseId || "(default)";
+    let dbIdUsed = process.env.FIRESTORE_DATABASE_ID || "(default)";
 
     if (db) {
       dbStatus = "ok";
+      // Try to get more info for logging if possible
+      try {
+        const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+        if (fs.existsSync(configPath)) {
+           const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+           if (!process.env.FIRESTORE_DATABASE_ID && config.firestoreDatabaseId) {
+             dbIdUsed = config.firestoreDatabaseId;
+           }
+        }
+      } catch (e) {}
+
       const docId = email;
       const updateData: any = {
         email: docId,
