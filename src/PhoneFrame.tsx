@@ -29,11 +29,18 @@ const PhoneFrame: React.FC<PhoneFrameProps> = ({ children, onClose, showClose = 
         {/* Buttons - Right Side (Power) */}
         <div className="absolute right-[-2px] top-[230px] w-[3px] h-[90px] bg-slate-800 rounded-r-md z-0 shadow-sm"></div>
 
-        {/* Outer Frame (Bezel) - Thicker and more visible with depth */}
-        <div className="relative border-[12px] border-slate-800 rounded-[40px] md:rounded-[60px] w-[100vw] h-[100vh] md:w-[396px] md:h-[836px] bg-black overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9),inset_0_0_4px_rgba(255,255,255,0.2)]">
+        {/* Outer Frame (Bezel) - Slimmer and more lustrous with depth */}
+        <div className="relative border-[8px] border-slate-900 rounded-[42px] md:rounded-[56px] w-[100vw] h-[100vh] md:w-[380px] md:h-[820px] bg-black overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.8),inset_0_0_2px_rgba(255,255,255,0.3)]">
             
+            {/* Lustre/Glow Highlight Layer - Radial gradient on the bezel */}
+            <div className="absolute inset-0 rounded-[34px] md:rounded-[48px] pointer-events-none z-50 overflow-hidden">
+                <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.1)_0%,transparent_50%)]"></div>
+                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+            </div>
+
             {/* Inner Border highlighting the screen edge - slightly refined */}
-            <div className="absolute inset-0 border-[4px] border-black rounded-[32px] md:rounded-[52px] pointer-events-none z-40"></div>
+            <div className="absolute inset-0 border-[2px] border-black rounded-[34px] md:rounded-[48px] pointer-events-none z-40 shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]"></div>
 
             {/* Screen Content Wrapper */}
             <div className="w-full h-full bg-black overflow-hidden flex flex-col relative md:rounded-[48px]">

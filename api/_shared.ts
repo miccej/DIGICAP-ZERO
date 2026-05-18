@@ -1,20 +1,6 @@
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import fs from "fs";
-import path from "path";
-
-// Load config more robustly for serverless
-function getFirebaseConfig() {
-  try {
-    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-    if (fs.existsSync(configPath)) {
-      return JSON.parse(fs.readFileSync(configPath, "utf8"));
-    }
-  } catch (err) {
-    console.warn("[WARN] Could not load firebase-applet-config.json:", err);
-  }
-  return {};
-}
+import firebaseConfig from "../firebase-applet-config.json";
 
 export function getAdminDb() {
   try {
@@ -43,15 +29,16 @@ export function getAdminDb() {
       throw parseErr;
     }
 
+    const config = firebaseConfig as any;
+    const dbId = process.env.FIRESTORE_DATABASE_ID || config.firestoreDatabaseId || "(default)";
+    
     if (getApps().length === 0) {
       initializeApp({ 
         credential: cert(serviceAccount)
       });
-      console.log("[FIREBASE] Admin SDK Initialized Successfully");
+      console.log(`[FIREBASE] Admin SDK Initialized. Project=${serviceAccount.project_id} DB=${dbId}`);
     }
     
-    const config = getFirebaseConfig();
-    const dbId = process.env.FIRESTORE_DATABASE_ID || config.firestoreDatabaseId || "(default)";
     return getFirestore(dbId);
   } catch (err) {
     console.error("Firebase Admin Init Failed:", err);
@@ -85,7 +72,11 @@ export async function processWebhook(req: any, res: any) {
     }
 
     const db = getAdminDb();
+    let dbStatus = "not_initialized";
+    let dbIdUsed = process.env.FIRESTORE_DATABASE_ID || (firebaseConfig as any).firestoreDatabaseId || "(default)";
+
     if (db) {
+      dbStatus = "ok";
       const docId = email;
       const updateData: any = {
         email: docId,
@@ -100,7 +91,7 @@ export async function processWebhook(req: any, res: any) {
       };
       
       await db.collection("licenses").doc(docId).set(updateData, { merge: true });
-      console.log(`✅ [FIREBASE] Synced license for ${docId}`);
+      console.log(`✅ [FIREBASE] Synced license for ${docId} to DB: ${dbIdUsed}`);
 
       await db.collection("webhook_logs").add({
         eventName: event,
@@ -114,7 +105,12 @@ export async function processWebhook(req: any, res: any) {
     }
 
     console.log("[WEBHOOK] Success. Sending 200...");
-    return res.status(200).json({ received: true, at: new Date().toISOString() });
+    return res.status(200).json({ 
+      received: true, 
+      at: new Date().toISOString(),
+      db: dbStatus,
+      dbId: dbIdUsed
+    });
 
   } catch (err) {
     console.error("❌ [WEBHOOK ERROR]:", err);

@@ -8,8 +8,8 @@
 export type Language = 'sv' | 'en' | 'de' | 'fr';
 
 export const languageNames: Record<Language, string> = {
-  sv: "Svenska",
   en: "English",
+  sv: "Svenska",
   de: "Deutsch",
   fr: "Français",
 };

@@ -210,14 +210,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const [language, setLanguage] = useState<Language>(() => {
-    try {
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('digicap_lang') : null;
-      return (saved as Language) || 'en';
-    } catch (e) {
-      return 'en';
-    }
-  });
+  const [language, setLanguage] = useState<Language>('en');
 
   const [theme] = useState<AppTheme>('sharp');
   const t = translations[language];
@@ -1818,6 +1811,27 @@ const App: React.FC = () => {
                             </span>
                           </div>
                       </div>
+
+                      <div className="pt-6 border-t-2 border-slate-200 space-y-3">
+                          <label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-3 block">{t.helpAndGuides}</label>
+                          <button onClick={() => { setShowStudyGuide(true); }} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all cursor-pointer`}><span className="flex items-center gap-2"><Book className={`w-5 h-5 ${currentTheme.icon}`} /> {t.guideTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
+                          <button onClick={() => { setShowFormulaGuide(true); }} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all cursor-pointer`}><span className="flex items-center gap-2"><Calculator className="w-5 h-5 text-emerald-600" /> {t.formulaGuideTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
+                          <button onClick={() => { setShowFormulaDocument(true); }} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400 hover:bg-emerald-950/50' : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all cursor-pointer`}><span className="flex items-center gap-2"><FileText className={`w-5 h-5 text-emerald-500`} /> {t.formulaDocumentTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
+                          <button onClick={() => { setShowDistGuide(true); }} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all cursor-pointer`}><span className="flex items-center gap-2"><BarChart className="w-5 h-5 text-violet-600" /> {t.distGuideTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
+                          <button onClick={() => { setShowGlossary(true); }} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all cursor-pointer`}><span className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-600" /> {t.glossaryTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
+                          <button onClick={() => { setShowTraining(true); }} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all cursor-pointer`}><span className="flex items-center gap-2"><HelpCircle className={`w-5 h-5 ${currentTheme.icon}`} /> {t.trainingTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
+                          <button 
+                            onClick={() => { setShowSettings(false); setShowGame(true); }} 
+                            className="w-full flex items-center justify-between p-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm uppercase tracking-widest rounded-sm transition-all shadow-lg shadow-blue-900/20 cursor-pointer"
+                          >
+                            <span className="flex items-center gap-2">
+                              <Target className="w-5 h-5" /> 
+                              {t.playHitTheMean}
+                            </span>
+                            <ChevronDown className="w-5 h-5 -rotate-90 text-white/50" />
+                          </button>
+                      </div>
+
                       <div className="pt-6 border-t-2 border-slate-200 space-y-6">
                          <div>
                             <label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">{t.statStandard}</label>
@@ -1836,26 +1850,8 @@ const App: React.FC = () => {
                                 </div>
                             )}
                          </div>
-                         <div><label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">{t.distModel}</label><select value={activeMeasure.distribution} onChange={(e) => updateActiveMeasure({ distribution: e.target.value as DistributionType })} className={`${selectBaseStyle} ${themeMode === 'dark' ? 'bg-slate-800 text-white border-slate-600' : 'bg-white text-slate-900 border-slate-400'}`}><option value="Normal">{t.distNormal}</option><option value="LogNormal">{t.distLog}</option><option value="Folded">{t.distFolded}</option><option value="Rayleigh">{t.distRayleigh}</option><option value="Weibull">{t.distWeibull}</option></select></div>
+                         <div><label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">{t.distModel}</label><select value={activeMeasure.distribution} onChange={(e) => updateActiveMeasure({ distribution: e.target.value as DistributionType })} className={`${selectBaseStyle} ${themeMode === 'dark' ? 'bg-slate-800 text-white border-slate-600' : 'bg-white text-slate-900 border-slate-400'}`}><option value="Normal">{t.distNormal}</option><option value="LogNormal">{t.distLogNormal}</option><option value="Folded">{t.distFolded}</option><option value="Rayleigh">{t.distRayleigh}</option><option value="Weibull">{t.distWeibull}</option></select></div>
                          <div className="pt-2"><label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-2 block flex items-center gap-1"><Sigma className="w-4 h-4" /> {t.sigmaLevel}</label><div className="grid grid-cols-4 gap-2">{[2, 3, 4, 6].map(lvl => (<button key={lvl} onClick={() => updateActiveMeasure({ sigmaLevel: lvl })} className={`py-3 text-[12px] font-black border-2 rounded-sm transition-all ${activeMeasure.sigmaLevel === lvl ? 'bg-black text-white border-black' : (themeMode === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-600 hover:border-slate-400' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500')}`}>±{lvl}σ</button>))}</div></div>
-                      </div>
-                      <div className="pt-6 border-t-2 border-slate-200 space-y-3">
-                          <label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-3 block">{t.helpAndGuides}</label>
-                          <button onClick={() => setShowStudyGuide(true)} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all`}><span className="flex items-center gap-2"><Book className={`w-5 h-5 ${currentTheme.icon}`} /> {t.guideTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
-                          <button onClick={() => setShowFormulaGuide(true)} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all`}><span className="flex items-center gap-2"><Calculator className="w-5 h-5 text-emerald-600" /> {t.formulaGuideTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
-                          <button onClick={() => setShowDistGuide(true)} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all`}><span className="flex items-center gap-2"><BarChart className="w-5 h-5 text-violet-600" /> {t.distGuideTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
-                          <button onClick={() => setShowGlossary(true)} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all`}><span className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-600" /> {t.glossaryTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
-                          <button onClick={() => setShowTraining(true)} className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all`}><span className="flex items-center gap-2"><Book className={`w-5 h-5 ${currentTheme.icon}`} /> {t.trainingTitle}</span><ChevronDown className="w-5 h-5 -rotate-90 text-slate-400" /></button>
-                          <button 
-                            onClick={() => { setShowSettings(false); setShowGame(true); }} 
-                            className="w-full flex items-center justify-between p-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm uppercase tracking-widest rounded-sm transition-all shadow-lg shadow-blue-900/20"
-                          >
-                            <span className="flex items-center gap-2">
-                              <Target className="w-5 h-5" /> 
-                              {t.playHitTheMean}
-                            </span>
-                            <ChevronDown className="w-5 h-5 -rotate-90 text-white/50" />
-                          </button>
                       </div>
                       <div className="pt-6 border-t-2 border-slate-200">
                         <label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-3 block flex items-center gap-1"><Palette className="w-4 h-4" /> {t.themeTitle}</label>
@@ -1921,7 +1917,7 @@ const App: React.FC = () => {
           </div>
       )}
             {(showStudyGuide || showFormulaGuide || showFormulaDocument || showDistGuide || showGlossary || showTraining) && (
-        <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-4" onClick={() => {setShowStudyGuide(false); setShowFormulaGuide(false); setShowFormulaDocument(false); setShowDistGuide(false); setShowGlossary(false); setShowTraining(false);}}>
+        <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4" onClick={() => {setShowStudyGuide(false); setShowFormulaGuide(false); setShowFormulaDocument(false); setShowDistGuide(false); setShowGlossary(false); setShowTraining(false);}}>
            <div className={`${themeMode === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-black'} border-4 max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden`} onClick={(e) => e.stopPropagation()}>
               <div className={`p-5 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-300'} border-b-2 flex justify-between items-center shrink-0`}>
                  <h3 className={`font-bold text-sm uppercase tracking-widest ${themeMode === 'dark' ? 'text-slate-100' : 'text-black'}`}>
@@ -1992,7 +1988,7 @@ const App: React.FC = () => {
                           <button onClick={() => setShowTerms(true)} className={`px-2 py-3 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'} border-2 text-[10px] font-black uppercase tracking-widest transition-all`}>{t.termsTitle}</button>
                           <button onClick={() => setShowPrivacy(true)} className={`px-2 py-3 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'} border-2 text-[10px] font-black uppercase tracking-widest transition-all`}>{t.privacyTitle}</button>
                           <button 
-                            onClick={() => { setShowFormulaDocument(true); setShowAbout(false); }} 
+                            onClick={() => { setShowFormulaDocument(true); }} 
                             className={`col-span-2 px-2 py-3 ${themeMode === 'dark' ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-500 hover:bg-emerald-900/30' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'} border-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2`}
                           >
                             <Calculator className="w-3 h-3" />
