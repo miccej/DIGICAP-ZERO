@@ -1,4 +1,4 @@
-import { processWebhook } from "./_shared";
+import { processWebhook } from "./_shared.js";
 
 export default async function handler(req: any, res: any) {
   if (req.method === "POST") {

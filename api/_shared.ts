@@ -1,25 +1,13 @@
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import fs from "fs";
-import path from "path";
-
-// Load config more robustly
-let firebaseConfig: any = {};
-try {
-  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-  if (fs.existsSync(configPath)) {
-    firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
-  }
-} catch (err) {
-  console.warn("[WARN] Could not load firebase-applet-config.json:", err);
-}
+import firebaseConfig from "../firebase-applet-config.json";
 
 export function getAdminDb() {
   try {
     const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT;
     
     if (!rawKey) {
-      console.warn("[WARN] FIREBASE_SERVICE_ACCOUNT_KEY not found in environment.");
+      console.warn("[WARN] FIREBASE_SERVICE_ACCOUNT_KEY not found.");
       return null;
     }
 
@@ -52,7 +40,7 @@ export function getAdminDb() {
       console.log("[FIREBASE] Admin SDK Initialized Successfully");
     }
     
-    const dbId = process.env.FIRESTORE_DATABASE_ID || firebaseConfig.firestoreDatabaseId || "(default)";
+    const dbId = process.env.FIRESTORE_DATABASE_ID || (firebaseConfig as any).firestoreDatabaseId || "(default)";
     return getFirestore(dbId);
   } catch (err) {
     console.error("Firebase Admin Init Failed:", err);

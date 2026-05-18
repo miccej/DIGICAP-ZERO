@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import cors from "cors";
-import { getAdminDb, processWebhook } from "./api/_shared";
+import { getAdminDb, processWebhook } from "./api/_shared.js";
 
 const app = express();
 const PORT = 3000;
