@@ -22,7 +22,7 @@ app.use((req, res, next) => {
 // 3. API ROUTES (Synchronous)
 
 // Webhooks
-app.post(["/api/webhook", "/api/lemon-squeezy-webhook"], async (req, res) => {
+app.post(["/api/webhook", "/api/lemon-squeezy-webhook", "/api/webhooks/lemon"], async (req, res) => {
   await processWebhook(req, res);
 });
 

@@ -109,14 +109,41 @@ const LandingPage: React.FC<{
 }> = ({ onStart, onDemo, onLogin, onLicenseLogin, themeColor, language, onLanguageChange, userAccess }) => {
   const t = translations[language];
   return (
-    <div className="h-full w-full bg-black flex flex-col relative overflow-hidden">
+    <div className="h-full w-full bg-[#020617] flex flex-col relative overflow-hidden">
+      {/* Background with Luster & Depth */}
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-blue-950/40 to-blue-900/40 pointer-events-none"></div>
+      
       {/* Background subtle pattern */}
       <div className="absolute inset-0 opacity-[0.1] pointer-events-none">
         <div className="absolute top-0 left-0 w-full h-full" style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
       </div>
+
+      {/* LUSTER/GLOW EFFECT BACKGROUND */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.2, 1],
+            opacity: [0.2, 0.4, 0.2],
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-10%] left-[-10%] w-[70%] h-[70%] rounded-full bg-blue-500/20 blur-[100px]"
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.2, 1],
+            opacity: [0.15, 0.3, 0.15],
+          }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-indigo-600/20 blur-[120px]"
+        />
+      </div>
       
-      {/* Darker blue tone at the bottom */}
-      <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-950/80 to-transparent pointer-events-none"></div>
+      {/* Blue tone at the bottom */}
+      <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-600/10 via-transparent to-transparent pointer-events-none"></div>
+
+      {/* Border Luster - Soft inner glow */}
+      <div className="absolute inset-0 border border-slate-400/40 pointer-events-none z-50"></div>
+      <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(59,130,246,0.05)] pointer-events-none"></div>
 
       {/* HEADER: LOGO - LOCKED SECTION: DO NOT MODIFY LAYOUT, SPACING OR POSITIONING */}
       <div className="w-full p-6 z-10 flex flex-col items-center shrink-0 mt-2 md:mt-3 translate-y-[10px]">
