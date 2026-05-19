@@ -1,10 +1,10 @@
 {
-  "projectId": "gen-lang-client-0246937321",
-  "appId": "1:548952298472:web:d44bf18d6c582567a18a5d",
-  "apiKey": "AIzaSyB7zkaOOFHo3fM3J06CmnjEa4ODw4qXwOE",
-  "authDomain": "gen-lang-client-0246937321.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-31075da2-1743-43df-9d8c-2b7636019d40",
-  "storageBucket": "gen-lang-client-0246937321.firebasestorage.app",
-  "messagingSenderId": "548952298472",
-  "measurementId": ""
+  "projectId": "digicap-stat",
+  "appId": "1:1058012751714:web:3fc0f5e3b89e15331a2e3b",
+  "apiKey": "AIzaSyBqb9ahnhdPccYNTP4u4cHLShjscawrXDY",
+  "authDomain": "digicap-stat.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "digicap-stat.appspot.com",
+  "messagingSenderId": "1058012751714",
+  "measurementId": "G-ZB2PVT4DKC"
 }

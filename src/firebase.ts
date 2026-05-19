@@ -1,11 +1,28 @@
-
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
+
 import firebaseConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firebase
+if (typeof window !== 'undefined') {
+  console.log("[FIREBASE] Initializing with version 19.4 (Stable)");
+}
+
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// Initialize Analytics
+export const analytics = typeof window !== 'undefined' 
+  ? isSupported().then(yes => yes ? getAnalytics(app) : null).catch(() => null)
+  : Promise.resolve(null);
+
+// STABILITY FIX: Use long-polling to bypass WebSocket issues in preview
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false
+});
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
@@ -27,15 +44,5 @@ export const loginWithGoogle = async () => {
   }
 };
 
-async function testConnection() {
-  try {
-    // Attempt to read a dummy doc to verify connection
-    await getDocFromServer(doc(db, 'system', 'ping'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
-  }
-}
-
-testConnection();
+// testConnection removed to avoid "offline" false positives in preview
+// async function testConnection() { ... }

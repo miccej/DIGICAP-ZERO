@@ -370,6 +370,15 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const userId = auth.currentUser?.uid;
+    if (userId) {
+      getUserAccess(userId).then((data) => {
+        console.log("License status:", data);
+      });
+    }
+  }, []);
+
   const [showAbout, setShowAbout] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);

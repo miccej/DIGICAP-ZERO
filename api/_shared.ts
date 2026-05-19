@@ -5,36 +5,46 @@ import path from "path";
 
 export function getAdminDb() {
   try {
-    // 1. Resolve Database ID first
+    // 1. Resolve Database ID
     let dbId = process.env.FIRESTORE_DATABASE_ID || "(default)";
+    if (dbId === "default") dbId = "(default)";
     
-    let config: any = {};
+    // Safely attempt to read dbId from config if env var is default
     try {
       const configPath = path.join(process.cwd(), "firebase-applet-config.json");
       if (fs.existsSync(configPath)) {
-        config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+        const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
         if (dbId === "(default)" && config.firestoreDatabaseId) {
           dbId = config.firestoreDatabaseId;
         }
       }
     } catch (configErr) {
-      console.warn("[FIREBASE] Could not load config file for dbId identification.");
+      // Ignore config read errors, use what we have
     }
 
-    // 2. Check if already initialized
+    // 2. Resolve App Initialization
     let app;
+    const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT;
+    
     if (getApps().length > 0) {
       app = getApps()[0];
-    } else {
-      // 3. Initialize if needed
-      const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT;
-      
+      // If we have a key but the existing app is using a different project, we might need a named app
+      // But typically on Cloud Run/Vercel, we can just use the default app if it was initialized correctly
+    }
+    
+    if (!app) {
       if (rawKey) {
         let cleanKey = rawKey.trim();
-        if ((cleanKey.startsWith("'") && cleanKey.endsWith("'")) || 
-            (cleanKey.startsWith('"') && cleanKey.endsWith('"'))) {
-          cleanKey = cleanKey.slice(1, -1);
+        
+        // Robust JSON detection: Find the first '{' and last '}'
+        const firstBrace = cleanKey.indexOf("{");
+        const lastBrace = cleanKey.lastIndexOf("}");
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          cleanKey = cleanKey.substring(firstBrace, lastBrace + 1);
         }
+
+        // Handle escaped newlines (common in some env editors)
         if (cleanKey.includes("\\n")) {
           cleanKey = cleanKey.replace(/\\n/g, "\n");
         }
@@ -44,104 +54,118 @@ export function getAdminDb() {
           app = initializeApp({ 
             credential: cert(serviceAccount)
           });
-          console.log(`[FIREBASE] Initialized with Service Account. Project=${serviceAccount.project_id}`);
-        } catch (parseErr) {
-          console.error("[FIREBASE] Parsing service account key failed. Falling back to default.");
+          console.log(`[FIREBASE] Init SUCCESS. Project=${serviceAccount.project_id} DB=${dbId}`);
+        } catch (parseErr: any) {
+          console.error("[FIREBASE] JSON Parse failed for Service Account Secret:", parseErr.message);
+          console.log("[FIREBASE] Key length received:", cleanKey.length);
+          console.log("[FIREBASE] Key starts with:", cleanKey.substring(0, 20));
           app = initializeApp();
         }
       } else {
-        console.log("[FIREBASE] No Service Account key found. Using Application Default Credentials.");
+        console.log("[FIREBASE] No service account key. Using application default credentials.");
         app = initializeApp();
       }
     }
     
-    // 4. Return Firestore with correct dbId targeting
-    return dbId === "(default)" ? getFirestore(app) : getFirestore(app, dbId);
+    if (!app) {
+      console.error("[FIREBASE] App failed to initialize.");
+      return null;
+    }
+
+    // 3. Return Firestore
+    // Note: getFirestore(app, dbId) works in admin v11+
+    // If dbId is "(default)", use the default database
+    return (!dbId || dbId === "(default)") ? getFirestore(app) : getFirestore(app, dbId);
   } catch (err) {
-    console.error("Firebase Admin Init Failed:", err);
+    console.error("[FIREBASE] FATAL INITIALIZATION ERROR:", err);
     return null;
   }
 }
 
 export async function processWebhook(req: any, res: any) {
-  console.log("\n[!!!] WEBHOOK PROCESSING START [!!!]");
+  const now = new Date().toISOString();
+  console.log(`\n[!!!] WEBHOOK START [${now}] [!!!]`);
   
   try {
     const payload = req.body;
     if (!payload || !payload.data) {
-      console.error("!!! [WEBHOOK] Empty body received !!!");
-      return res.status(400).json({ error: "Malformed payload" });
+      console.error("!!! [WEBHOOK] Invalid payload body !!!");
+      return res.status(400).json({ error: "Malformed payload", received: false });
     }
 
-    const attributes = payload.data.attributes || {};
-    const meta = payload.meta || {};
+    const { data, meta } = payload;
+    const attributes = data.attributes || {};
+    const eventName = meta?.event_name || "unknown";
     
-    const email = (attributes.user_email || attributes.email || meta.custom_data?.email || "").toLowerCase().trim();
-    const event = meta.event_name;
-    const status = attributes.status;
-    const variant = attributes.variant_name;
+    // Fallback email resolution
+    const email = (
+      attributes.user_email || 
+      attributes.email || 
+      meta?.custom_data?.email || 
+      ""
+    ).toLowerCase().trim();
 
-    console.log(`[LS-WEBHOOK] Event=${event} Email=${email} Status=${status}`);
+    console.log(`[WEBHOOK] Event=${eventName} Email=${email} Status=${attributes.status}`);
 
     if (!email) {
-      console.warn("[WEBHOOK] No email found.");
-      return res.status(200).json({ received: true, warning: "no_email" });
+      console.warn("[WEBHOOK] No email found in payload. Skipping DB update.");
+      return res.status(200).json({ received: true, info: "no_email_in_payload" });
     }
 
     const db = getAdminDb();
-    let dbStatus = "not_initialized";
-    let dbIdUsed = process.env.FIRESTORE_DATABASE_ID || "(default)";
-
+    
     if (db) {
-      dbStatus = "ok";
-      // Try to get more info for logging if possible
-      try {
-        const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-        if (fs.existsSync(configPath)) {
-           const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-           if (!process.env.FIRESTORE_DATABASE_ID && config.firestoreDatabaseId) {
-             dbIdUsed = config.firestoreDatabaseId;
-           }
-        }
-      } catch (e) {}
-
       const docId = email;
-      const updateData: any = {
+      const status = attributes.status || "active";
+      const variant = attributes.variant_name || "Digicap STAT";
+
+      // Sync to licenses collection
+      await db.collection("licenses").doc(docId).set({
         email: docId,
-        status: status || "active",
-        variant_name: variant || "Digicap STAT",
-        updatedAt: new Date().toISOString(),
-        last_event: event,
+        status: status,
+        variant_name: variant,
+        updatedAt: now,
+        last_event: eventName,
         order_id: attributes.order_id || null,
         license_key: attributes.license_key || null,
-        customer_id: attributes.customer_id || null,
-        full_payload_received: true
-      };
-      
-      await db.collection("licenses").doc(docId).set(updateData, { merge: true });
-      console.log(`✅ [FIREBASE] Synced license for ${docId} to DB: ${dbIdUsed}`);
+        customer_id: attributes.customer_id || null
+      }, { merge: true });
 
+      // Log to history
       await db.collection("webhook_logs").add({
-        eventName: event,
+        eventName,
+        email,
+        status,
+        timestamp: now,
+        variant
+      });
+
+      console.log(`✅ [WEBHOOK] Successfully processed for ${email}`);
+      return res.status(200).json({ 
+        received: true, 
+        processed: true,
         email: email,
-        status: status,
-        timestamp: new Date().toISOString(),
-        variant: variant
+        at: now
       });
     } else {
-      console.error("[ERROR] Firestore DB not initialized");
+      console.error("❌ [WEBHOOK] Database not initialized. Cannot save.");
+      return res.status(200).json({ 
+        received: true, 
+        processed: false,
+        error: "db_not_initialized",
+        at: now
+      });
     }
 
-    console.log("[WEBHOOK] Success. Sending 200...");
+  } catch (err: any) {
+    console.error("❌ [WEBHOOK FATAL ERROR]:", err);
+    // Still return 200 to LS but tell them it failed internally
     return res.status(200).json({ 
       received: true, 
-      at: new Date().toISOString(),
-      db: dbStatus,
-      dbId: dbIdUsed
+      processed: false, 
+      error: "internal_error",
+      details: err.message,
+      at: now 
     });
-
-  } catch (err) {
-    console.error("❌ [WEBHOOK ERROR]:", err);
-    return res.status(500).json({ error: "Internal processing error", details: String(err) });
   }
 }

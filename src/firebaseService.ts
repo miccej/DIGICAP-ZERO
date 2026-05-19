@@ -92,10 +92,11 @@ export const verifyLicense = async (email: string, orderId: string): Promise<boo
 export const checkLicenseByEmail = async (email: string): Promise<boolean> => {
   if (!email) return false;
   try {
-    const licenseDoc = await getDoc(doc(db, 'licenses', email.toLowerCase()));
+    const licenseDoc = await getDoc(doc(db, 'licenses', email.toLowerCase().trim()));
     if (licenseDoc.exists()) {
       const data = licenseDoc.data();
-      return data.status === 'active' || data.status === 'on_trial' || data.status === 'past_due';
+      const validStatuses = ['active', 'on_trial', 'past_due', 'subscribed'];
+      return validStatuses.includes(data.status);
     }
     return false;
   } catch (error) {

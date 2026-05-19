@@ -33,7 +33,7 @@
     "framer-motion": "^12.38.0",
     "jsonwebtoken": "latest",
     "katex": "^0.16.45",
-    "lucide-react": "^1.14.0",
+    "lucide-react": "^0.454.0",
     "motion": "^12.38.0",
     "raw-body": "^3.0.2",
     "react": "^18.3.1",

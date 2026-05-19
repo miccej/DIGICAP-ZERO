@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import cors from "cors";
-import { getAdminDb, processWebhook } from "./api/_shared.js";
+import { getAdminDb, processWebhook } from "./api/_shared.ts";
 
 const app = express();
 const PORT = 3000;
@@ -34,7 +34,7 @@ app.get("/api/webhook", (req, res) => {
 app.get("/api/health", (req, res) => {
   res.status(200).json({ 
     status: "online", 
-    version: "19.0-SYNC-READY",
+    version: "19.5-CSP-CLEAN",
     time: new Date().toISOString()
   });
 });
@@ -43,14 +43,18 @@ app.get("/api/health", (req, res) => {
 app.get("/api/webhook-logs", async (req, res) => {
   try {
     const db = getAdminDb();
-    if (!db) return res.status(500).json({ error: "Firebase not initialized" });
+    if (!db) {
+      console.error("[API] Firebase Admin failed. Check FIREBASE_SERVICE_ACCOUNT.");
+      return res.status(500).json({ error: "Database initialization failed" });
+    }
     const licensesSnapshot = await db.collection("licenses").orderBy("updatedAt", "desc").limit(100).get();
     const licenses = licensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const logsSnapshot = await db.collection("webhook_logs").orderBy("timestamp", "desc").limit(100).get();
     const logs = logsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    res.status(200).json({ logs, licenses });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch logs" });
+    res.status(200).json({ logs, licenses, debug: "v19.1" });
+  } catch (err: any) {
+    console.error("[API] Webhook logs error:", err);
+    res.status(500).json({ error: "Failed to fetch logs", details: err.message });
   }
 });
 

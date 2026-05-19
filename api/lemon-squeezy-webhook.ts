@@ -1,4 +1,4 @@
-import { processWebhook } from "./_shared.js";
+import { processWebhook } from "./_shared.ts";
 
 export default async function handler(req: any, res: any) {
   console.log(`[HANDLER] Method=${req.method} Path=${req.url}`);
