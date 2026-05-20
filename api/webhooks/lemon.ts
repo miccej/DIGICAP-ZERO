@@ -1,4 +1,4 @@
-import { processWebhook } from "../_shared.ts";
+import { processWebhook } from "../_shared.js";
 
 /**
  * Lemon Squeezy Webhook Handler

@@ -1,4 +1,4 @@
-import { getAdminDb } from "./_shared.ts";
+import { getAdminDb } from "./_shared.js";
 
 export default async function handler(req: any, res: any) {
   try {
