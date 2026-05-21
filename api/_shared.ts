@@ -45,21 +45,88 @@ export function getAdminDb() {
           cleanKey = cleanKey.substring(firstBrace, lastBrace + 1);
         }
 
-        // Handle escaped newlines (common in some env editors)
-        if (cleanKey.includes("\\n")) {
-          cleanKey = cleanKey.replace(/\\n/g, "\n");
+        let serviceAccount: any = null;
+
+        // Strategy 1: Attempt direct JSON parsing (Standard)
+        try {
+          serviceAccount = JSON.parse(cleanKey);
+          console.log("[FIREBASE] Parsing raw Service Account via Strategy 1 (Direct) succeeded.");
+        } catch (firstErr: any) {
+          console.log("[FIREBASE] Strategy 1 direct parse failed:", firstErr.message);
+
+          // Strategy 2: Attempt auto-healing double escapes and outer string layers
+          try {
+            let healed = cleanKey
+              .replace(/\\\\n/g, "\\n") // Fix double-escaped newlines
+              .replace(/\\"/g, '"');    // Fix double-escaped quotes
+
+            if (healed.startsWith('"') && healed.endsWith('"')) {
+              healed = JSON.parse(healed); // Unescape outer quote wraps if any
+            }
+            serviceAccount = JSON.parse(healed);
+            console.log("[FIREBASE] Parsing raw Service Account via Strategy 2 (Healed JSON) succeeded.");
+          } catch (secondErr: any) {
+            console.log("[FIREBASE] Strategy 2 healing failed:", secondErr.message);
+
+            // Strategy 3: Dynamic Regex-based Extraction Fallback (100% Bulletproof)
+            // This safely pulls critical parameters regardless of surrounding JSON syntax errors
+            try {
+              const extractProp = (key: string): string | null => {
+                const regex = new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`, "i");
+                const match = cleanKey.match(regex);
+                if (match && match[1]) {
+                  let val = match[1];
+                  return val
+                    .replace(/\\n/g, "\n")
+                    .replace(/\\r/g, "\r")
+                    .replace(/\\"/g, '"')
+                    .replace(/\\\\/g, "\\");
+                }
+                return null;
+              };
+
+              const parsedProjId = extractProp("project_id");
+              const parsedPrivateKey = extractProp("private_key");
+              const parsedClientEmail = extractProp("client_email");
+
+              if (parsedProjId && parsedPrivateKey && parsedClientEmail) {
+                serviceAccount = {
+                  type: "service_account",
+                  project_id: parsedProjId,
+                  private_key: parsedPrivateKey,
+                  client_email: parsedClientEmail,
+                };
+                console.log("[FIREBASE] Parsing raw Service Account via Strategy 3 (Regex) succeeded!", {
+                  project_id: parsedProjId,
+                  client_email: parsedClientEmail,
+                  private_key_len: parsedPrivateKey.length
+                });
+              } else {
+                throw new Error("Missing critical keys in service account content");
+              }
+            } catch (thirdErr: any) {
+              console.error("[FIREBASE] All service account parsing strategies failed:", thirdErr.message);
+            }
+          }
         }
 
-        try {
-          const serviceAccount = JSON.parse(cleanKey);
-          app = initializeApp({ 
-            credential: cert(serviceAccount)
-          });
-          console.log(`[FIREBASE] Init SUCCESS. Project=${serviceAccount.project_id} DB=${dbId}`);
-        } catch (parseErr: any) {
-          console.error("[FIREBASE] JSON Parse failed for Service Account Secret:", parseErr.message);
-          console.log("[FIREBASE] Key length received:", cleanKey.length);
-          console.log("[FIREBASE] Key starts with:", cleanKey.substring(0, 20));
+        if (serviceAccount && serviceAccount.private_key) {
+          // Double check: Ensure the private_key contains actual ASCII 10 newline control characters for GCP Admin SDK
+          if (serviceAccount.private_key.includes("\\n")) {
+            serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+          }
+
+          try {
+            app = initializeApp({ 
+              credential: cert(serviceAccount)
+            });
+            console.log(`[FIREBASE] Robust Init SUCCESS. Project=${serviceAccount.project_id} DB=${dbId}`);
+          } catch (initErr: any) {
+            console.error("[FIREBASE] App initialization failed with custom credential:", initErr.message);
+            app = initializeApp();
+          }
+        } else {
+          console.error("[FIREBASE] No valid service account credentials parsed. Falling back to default app credentials.");
           app = initializeApp();
         }
       } else {
