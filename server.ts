@@ -30,6 +30,17 @@ app.get("/api/webhook", (req, res) => {
   res.send("DIGICAP WEBHOOK ENDPOINT IS LIVE. USE POST.");
 });
 
+// Serve generated logos directly for easy user download
+app.get("/digicap_console_logo.png", (req, res) => {
+  res.sendFile(path.resolve("digicap_console_logo.png"));
+});
+app.get("/digicap_console_logo.jpg", (req, res) => {
+  res.sendFile(path.resolve("digicap_console_logo.jpg"));
+});
+app.get("/digicap_console_logo.svg", (req, res) => {
+  res.sendFile(path.resolve("digicap_console_logo.svg"));
+});
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.status(200).json({ 
@@ -51,7 +62,17 @@ app.get("/api/webhook-logs", async (req, res) => {
     const licenses = licensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const logsSnapshot = await db.collection("webhook_logs").orderBy("timestamp", "desc").limit(100).get();
     const logs = logsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    res.status(200).json({ logs, licenses, debug: "v19.1" });
+    
+    // Fetch recent user activities
+    let activities: any[] = [];
+    try {
+      const activitySnapshot = await db.collection("user_activity").orderBy("timestamp", "desc").limit(150).get();
+      activities = activitySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (actErr: any) {
+      console.log("[API] Failed to fetch activities: Wait, maybe collection empty?", actErr.message);
+    }
+
+    res.status(200).json({ logs, licenses, activities, debug: "v19.1" });
   } catch (err: any) {
     console.error("[API] Webhook logs error:", err);
     res.status(500).json({ error: "Failed to fetch logs", details: err.message });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Target, RotateCcw, X, Info, Trophy, AlertCircle, Sparkles } from 'lucide-react';
 
 interface HitTheMeanGameProps {

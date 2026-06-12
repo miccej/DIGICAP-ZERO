@@ -19,8 +19,7 @@ export const analytics = typeof window !== 'undefined'
 
 // STABILITY FIX: Use long-polling to bypass WebSocket issues in preview
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-  useFetchStreams: false
+  experimentalForceLongPolling: true
 });
 
 export const auth = getAuth(app);
@@ -29,7 +28,11 @@ export const googleProvider = new GoogleAuthProvider();
 // Authentication helper
 export const ensureAuthenticated = async () => {
   if (!auth.currentUser) {
-    await signInAnonymously(auth);
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.warn("Anonymous sign-in failing or disabled, continuing without authentication:", error);
+    }
   }
   return auth.currentUser;
 };

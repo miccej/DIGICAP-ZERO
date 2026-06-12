@@ -1,0 +1,51 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Pitch Black Outer Frame Border (Matches Google Play design guidelines) -->
+  <rect width="512" height="512" fill="#000000" />
+  
+  <!-- Inner Card Grid (Deep slate-cobalt container, centered) -->
+  <rect x="60" y="60" width="392" height="392" fill="#0d111d" stroke="#1f293d" stroke-width="6" rx="8" />
+
+  <!-- Bold Typographical Block perfectly centered -->
+  <g transform="translate(256, 0)">
+    <!-- DIGI - Line 1 (Tight letter placement) -->
+    <text 
+      x="0" 
+      y="220" 
+      text-anchor="middle" 
+      fill="#aa80ff" 
+      stroke="#ffffff" 
+      stroke-width="5" 
+      stroke-linejoin="round" 
+      paint-order="stroke fill" 
+      style="font-family: 'Arial Black', 'Impact', sans-serif; font-weight: 900; font-size: 145px; letter-spacing: -0.06em;"
+    >
+      DIGI
+    </text>
+    
+    <!-- CAP - Line 2 (Tight letter placement) -->
+    <text 
+      x="0" 
+      y="350" 
+      text-anchor="middle" 
+      fill="#aa80ff" 
+      stroke="#ffffff" 
+      stroke-width="5" 
+      stroke-linejoin="round" 
+      paint-order="stroke fill" 
+      style="font-family: 'Arial Black', 'Impact', sans-serif; font-weight: 900; font-size: 145px; letter-spacing: -0.06em;"
+    >
+      CAP
+    </text>
+
+    <!-- CMK/CPK/PPK Subtitle (Now inside the main card container at the bottom) -->
+    <text
+      x="0"
+      y="418"
+      text-anchor="middle"
+      fill="#ffffff"
+      style="font-family: 'Arial Black', 'Impact', 'Inter', sans-serif; font-weight: 900; font-size: 25px; letter-spacing: 0.05em;"
+    >
+      CMK/CPK/PPK
+    </text>
+  </g>
+</svg>

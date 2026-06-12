@@ -121,3 +121,20 @@ export const decrementTrial = async (userId: string): Promise<UserAccessData | n
   }
   return userData;
 };
+
+export const logUserActivity = async (email: string, action: string, details?: any) => {
+  if (!email) return;
+  try {
+    const sanitizedEmail = email.toLowerCase().trim();
+    const cleanAction = action.replace(/[\/\s]/g, '_');
+    const docId = `${sanitizedEmail}_${cleanAction}_${Date.now()}`;
+    await setDoc(doc(db, 'user_activity', docId), {
+      email: sanitizedEmail,
+      action,
+      details: details || {},
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error logging activity to Firebase:", error);
+  }
+};

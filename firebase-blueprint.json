@@ -42,6 +42,45 @@
         }
       },
       "required": ["isForever", "trialRemaining", "redeemedCodes", "updatedAt"]
+    },
+    "UserActivity": {
+      "title": "User Activity",
+      "description": "Log of user actions and telemetry",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "action", "details", "timestamp"]
+    },
+    "AppTestIp": {
+      "title": "App Test IP",
+      "description": "Authorized IP bypass details",
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string"
+        },
+        "unlockedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "number"
+        }
+      },
+      "required": ["ip", "unlockedAt", "expiresAt"]
     }
   },
   "firestore": {
@@ -78,6 +117,14 @@
         }
       },
       "description": "Consolidated license state per user email"
+    },
+    "user_activity/{activityId}": {
+      "schema": "UserActivity",
+      "description": "Individually logged telemetry and user events"
+    },
+    "apptest_ips/{ipDocId}": {
+      "schema": "AppTestIp",
+      "description": "IP addresses authorized for testing bypass"
     }
   }
 }

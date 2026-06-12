@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense, lazy } from 'react'; // Build Version: 2026-03-13-v1
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 console.log("DIGICAP App Loading...");
 import { 
   Menu, X, Globe, Plus, FolderOpen, Save, FileSpreadsheet, Monitor, Play, CheckCircle2, RotateCcw as RotateCcwIcon, FileText,
@@ -21,9 +21,69 @@ import ReactMarkdown from 'react-markdown';
 import * as DistMath from './distributionMath';
 const HitTheMeanGame = lazy(() => import('./components/HitTheMeanGame'));
 import { APP_IDENTITY, EXTERNAL_LINKS, APP_LIMITS } from './config';
-import { auth, ensureAuthenticated, loginWithGoogle } from './firebase';
-import { getUserAccess, initializeUserAccess, redeemCode, UserAccessData, decrementTrial, checkLicenseByEmail, verifyLicense } from './firebaseService';
+import { auth, ensureAuthenticated, loginWithGoogle, db } from './firebase';
+import { getUserAccess, initializeUserAccess, redeemCode, UserAccessData, decrementTrial, checkLicenseByEmail, verifyLicense, logUserActivity } from './firebaseService';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+
+// Resilient localized localStorage wrapper to bypass strict cross-origin iframe storage blocks
+const getSafeLocalStorage = () => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage;
+    }
+  } catch (e) {
+    console.warn("[STORAGE] localStorage access is restricted in this context:", e);
+  }
+  return null;
+};
+
+const safeStorageInstance = getSafeLocalStorage();
+
+const localStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return safeStorageInstance ? safeStorageInstance.getItem(key) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      if (safeStorageInstance) {
+        safeStorageInstance.setItem(key, value);
+      }
+    } catch (e) {}
+  },
+  removeItem: (key: string): void => {
+    try {
+      if (safeStorageInstance) {
+        safeStorageInstance.removeItem(key);
+      }
+    } catch (e) {}
+  },
+  get length(): number {
+    try {
+      return safeStorageInstance ? safeStorageInstance.length : 0;
+    } catch (e) {
+      return 0;
+    }
+  },
+  key: (index: number): string | null => {
+    try {
+      return safeStorageInstance ? safeStorageInstance.key(index) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+  clear: (): void => {
+    try {
+      if (safeStorageInstance) {
+        safeStorageInstance.clear();
+      }
+    } catch (e) {}
+  }
+};
 
 const uuidv4 = (): string => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -31,6 +91,17 @@ const uuidv4 = (): string => {
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
+};
+
+const getCountryFlagAndName = (countryCode?: string | null, countryName?: string | null): string => {
+  if (!countryCode) return '';
+  const code = countryCode.toUpperCase();
+  try {
+    const flag = code.replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+    return `${countryName || code} ${flag}`;
+  } catch {
+    return countryName || code;
+  }
 };
 
 const LogoIcon = ({ colorClass }: { colorClass: string }) => (
@@ -103,15 +174,16 @@ const LandingPage: React.FC<{
   onLogin: () => void; 
   onLicenseLogin: () => void;
   themeColor: any; 
+  logoColorClass: string;
   language: Language; 
   onLanguageChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; 
   userAccess: UserAccessData | null 
-}> = ({ onStart, onDemo, onLogin, onLicenseLogin, themeColor, language, onLanguageChange, userAccess }) => {
+}> = ({ onStart, onDemo, onLogin, onLicenseLogin, themeColor, logoColorClass, language, onLanguageChange, userAccess }) => {
   const t = translations[language];
   return (
     <div className="h-full w-full bg-[#020617] flex flex-col relative overflow-hidden">
-      {/* Background with Luster & Depth */}
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-blue-950/40 to-blue-900/40 pointer-events-none"></div>
+      {"/* Background with Luster & Depth */"}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0b132b] via-[#060b1b] to-[#020617] pointer-events-none"></div>
       
       {/* Background subtle pattern */}
       <div className="absolute inset-0 opacity-[0.1] pointer-events-none">
@@ -123,23 +195,23 @@ const LandingPage: React.FC<{
         <motion.div 
           animate={{ 
             scale: [1, 1.2, 1],
-            opacity: [0.2, 0.4, 0.2],
+            opacity: [0.15, 0.3, 0.15],
           }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-10%] left-[-10%] w-[70%] h-[70%] rounded-full bg-blue-500/20 blur-[100px]"
+          className="absolute top-[-10%] left-[-10%] w-[70%] h-[70%] rounded-full bg-blue-700/15 blur-[100px]"
         />
         <motion.div 
           animate={{ 
             scale: [1, 1.2, 1],
-            opacity: [0.15, 0.3, 0.15],
+            opacity: [0.1, 0.2, 0.1],
           }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-indigo-600/20 blur-[120px]"
+          className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-indigo-700/15 blur-[120px]"
         />
       </div>
       
       {/* Blue tone at the bottom */}
-      <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-600/10 via-transparent to-transparent pointer-events-none"></div>
+      <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-900/10 via-transparent to-transparent pointer-events-none"></div>
 
       {/* Border Luster - Soft inner glow */}
       <div className="absolute inset-0 border border-slate-400/40 pointer-events-none z-50"></div>
@@ -147,13 +219,24 @@ const LandingPage: React.FC<{
 
       {/* HEADER: LOGO - LOCKED SECTION: DO NOT MODIFY LAYOUT, SPACING OR POSITIONING */}
       <div className="w-full p-6 z-10 flex flex-col items-center shrink-0 mt-2 md:mt-3 translate-y-[10px]">
-        <div className="inline-flex flex-col items-center">
-          <h1 className="text-5xl font-black tracking-tighter text-amber-500 leading-none flex items-start">
+        <div className="inline-flex flex-col items-start">
+          <h1 
+            className={`relative text-5xl font-black tracking-[0.02em] ${logoColorClass} leading-none flex items-start`}
+            style={{ 
+              textShadow: '-0.5px -0.5px 0 rgba(255, 255, 255, 0.45), 0.5px -0.5px 0 rgba(255, 255, 255, 0.45), -0.5px 0.5px 0 rgba(255, 255, 255, 0.45), 0.5px 0.5px 0 rgba(255, 255, 255, 0.45)' 
+            }}
+          >
             {APP_IDENTITY.name}
-            <span className="text-[14px] font-bold text-slate-300 ml-0.5 mt-1 select-none">®</span>
+            <span className="absolute left-[calc(100%+3px)] top-[2px] text-[14px] font-bold text-slate-300 select-none" style={{ WebkitTextStroke: 'none', textShadow: 'none' }}>®</span>
           </h1>
-          <div className="w-full text-center mt-[-3px] uppercase text-slate-400 text-[13px] font-medium tracking-[0.16em]">
-            CAPABILITY ANYWHERE
+          <div 
+            className="w-full mt-[-5px] uppercase text-slate-400 text-[11.5px] font-semibold flex justify-between select-none"
+          >
+            {"CAPABILITY ANYWHERE".split("").map((char, idx) => (
+              <span key={idx}>
+                {char === " " ? "\u00A0" : char}
+              </span>
+            ))}
           </div>
         </div>
       </div>
@@ -163,7 +246,7 @@ const LandingPage: React.FC<{
       <div className="flex-1 flex flex-col items-center justify-center z-10 w-full gap-6">
         <button 
           onClick={onStart}
-          className="px-6 py-5 bg-gradient-to-br from-[#1a365d] to-[#0f172a] text-white font-black text-[11px] uppercase tracking-[0.12em] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.7)] transition-all active:scale-95 hover:translate-y-[-2px] hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] border border-blue-400/30 rounded-sm overflow-hidden group min-w-[240px] max-w-[90vw] relative"
+          className={`px-6 py-5 bg-gradient-to-br from-[#1a365d] to-[#0f172a] text-white font-black text-[11px] uppercase tracking-[0.12em] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.7)] transition-all active:scale-95 hover:translate-y-[-2px] hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] border border-${themeColor.primary}-400/30 rounded-sm overflow-hidden group min-w-[240px] max-w-[90vw] relative`}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
@@ -242,13 +325,13 @@ const App: React.FC = () => {
   const [theme] = useState<AppTheme>('sharp');
   const t = translations[language];
 
-  type AppColor = 'orange' | 'red' | 'green' | 'blue';
+  type AppColor = 'orange' | 'red' | 'green' | 'blue' | 'violet';
   const [appColor, setAppColor] = useState<AppColor>(() => {
     try {
       const saved = typeof window !== 'undefined' ? localStorage.getItem('digicap_color') : null;
-      return (saved as AppColor) || 'blue';
+      return (saved as AppColor) || 'violet';
     } catch (e) {
-      return 'blue';
+      return 'violet';
     }
   });
 
@@ -257,6 +340,8 @@ const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState(true);
 
   const [studyKey, setStudyKey] = useState<number>(Date.now());
+  const [showExportExcelModal, setShowExportExcelModal] = useState(false);
+  const [exportSelectedMeasureIds, setExportSelectedMeasureIds] = useState<string[]>([]);
 
   const handleColorChange = (color: AppColor) => {
     setAppColor(color);
@@ -265,6 +350,21 @@ const App: React.FC = () => {
 
 
   const themeColors = {
+    violet: {
+      name: t.colorViolet,
+      primary: 'violet',
+      logo: 'text-white',
+      newStudy: 'bg-violet-600 hover:bg-violet-700',
+      activeTab: 'bg-violet-600 border-violet-600',
+      border: 'border-violet-500',
+      text: 'text-violet-500',
+      icon: 'text-violet-600',
+      hex: '#7c3aed',
+      stroke: '#5b21b6',
+      lightBg: 'bg-violet-50',
+      lightBorder: 'border-violet-100',
+      darkText: 'text-violet-900'
+    },
     orange: {
       name: t.colorOrange,
       primary: 'amber',
@@ -327,7 +427,8 @@ const App: React.FC = () => {
     }
   };
 
-  const currentTheme = themeColors[appColor] || themeColors.blue;
+  const logoTheme = themeColors[appColor] || themeColors.blue;
+  const currentTheme = themeColors.blue;
 
   const [showNewStudyConfirm, setShowNewStudyConfirm] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
@@ -354,8 +455,57 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initAuth = async () => {
-      await ensureAuthenticated();
+      try {
+        await ensureAuthenticated();
+      } catch (authError) {
+        console.warn("Could not ensure authenticated state on startup:", authError);
+      }
       
+      // Check for APPTEST Bypass
+      try {
+        const localExpiry = localStorage.getItem('apptest_bypass_expiry');
+        if (localExpiry && Number(localExpiry) > Date.now()) {
+          console.log("[APPTEST] Active local bypass found.");
+          setUserAccess({
+            isForever: true,
+            trialRemaining: 999,
+            redeemedCodes: [],
+            updatedAt: new Date().toISOString()
+          });
+          setAppTestBypassActive(true);
+          return;
+        }
+
+        // Verify IP-based bypass in cloud Firestore
+        const res = await fetch('https://api.ipify.org?format=json');
+        if (res.ok) {
+          const data = await res.json();
+          const ip = data.ip;
+          if (ip) {
+            const docId = ip.replace(/\./g, '_');
+            const ipDoc = await getDoc(doc(db, 'apptest_ips', docId));
+            if (ipDoc.exists()) {
+              const docData = ipDoc.data();
+              if (docData && docData.expiresAt > Date.now()) {
+                console.log("[APPTEST] Cloud IP-based bypass authorized.");
+                localStorage.setItem('apptest_bypass_expiry', String(docData.expiresAt));
+                localStorage.setItem('apptest_bypass_ip', ip);
+                setUserAccess({
+                  isForever: true,
+                  trialRemaining: 999,
+                  redeemedCodes: [],
+                  updatedAt: new Date().toISOString()
+                });
+                setAppTestBypassActive(true);
+                return;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.log("No cloud IP bypass active:", err);
+      }
+
       // Check for locally saved license link (Corporate/Apple users)
       const savedLicenseEmail = localStorage.getItem('digicap_active_license');
       if (savedLicenseEmail && !userAccess) {
@@ -407,17 +557,62 @@ const App: React.FC = () => {
   }, []);
 
   const [showAbout, setShowAbout] = useState(false);
+
+  // Free Trial (3 tests) states
+  const [freeTrialCount, setFreeTrialCount] = useState<number>(() => {
+    try {
+      const val = localStorage.getItem('digicap_free_trial_count');
+      return val ? Number(val) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [showLastFreeTrialWarningModal, setShowLastFreeTrialWarningModal] = useState(false);
+  
+  // APPTEST access states
+  const [showAppTestModal, setShowAppTestModal] = useState(false);
+  const [appTestPassword, setAppTestPassword] = useState('');
+  const [appTestError, setAppTestError] = useState('');
+  const [isVerifyingAppTest, setIsVerifyingAppTest] = useState(false);
+  const [appTestBypassActive, setAppTestBypassActive] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [adminError, setAdminError] = useState<string | null>(null);
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
   const [activeLicenses, setActiveLicenses] = useState<any[]>([]);
+  const [userActivities, setUserActivities] = useState<any[]>([]);
+  const [adminSearch, setAdminSearch] = useState('');
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
-  const [adminTab, setAdminTab] = useState<'logs' | 'licenses'>('licenses');
+  const [adminTab, setAdminTab] = useState<'logs' | 'licenses' | 'activity'>('licenses');
   const [masterMode, setMasterMode] = useState(false);
   const [adminClickCount, setAdminClickCount] = useState(0);
   const [masterModeCount, setMasterModeCount] = useState(0);
+
+  const getCurrentUserEmail = useCallback(() => {
+    if (auth.currentUser?.email) return auth.currentUser.email;
+    const saved = localStorage.getItem('digicap_active_license');
+    if (saved) return saved.trim();
+    if (auth.currentUser?.uid) return `uid_${auth.currentUser.uid}`;
+    return 'anonymous_user';
+  }, []);
+
+  const logTelemetry = useCallback((action: string, details?: any) => {
+    const email = getCurrentUserEmail();
+    if (email && email !== 'anonymous_user') {
+      logUserActivity(email, action, details);
+    }
+  }, [getCurrentUserEmail]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const email = getCurrentUserEmail();
+      if (email && email !== 'anonymous_user') {
+        logTelemetry('App Opened', { screen_width: window.innerWidth, user_agent: navigator.userAgent });
+      }
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [getCurrentUserEmail, logTelemetry]);
 
   useEffect(() => {
     if (masterModeCount >= 5) {
@@ -456,6 +651,7 @@ const App: React.FC = () => {
       const data = await response.json();
       setWebhookLogs(data.logs || []);
       setActiveLicenses(data.licenses || []);
+      setUserActivities(data.activities || []);
     } catch (error: any) {
       console.error("Failed to fetch logs:", error);
       setAdminError(`Database error: ${error.message}`);
@@ -505,6 +701,88 @@ const App: React.FC = () => {
     setShowAdminPanel(false);
     setShowLanding(false);
     confirmNewStudy();
+  };
+
+  const handleVerifyAppTestPassword = async () => {
+    const pwd = appTestPassword.trim().toUpperCase();
+    if (pwd === 'GOOGLE') {
+      setIsVerifyingAppTest(true);
+      setAppTestError('');
+      try {
+        let ip = null;
+        try {
+          const res = await fetch('https://api.ipify.org?format=json');
+          if (res.ok) {
+            const data = await res.json();
+            ip = data.ip;
+          }
+        } catch (e) {
+          console.error("IP lookup failed inside prompt", e);
+        }
+
+        const expiresAt = Date.now() + 21 * 24 * 60 * 60 * 1000;
+        localStorage.setItem('apptest_bypass_expiry', String(expiresAt));
+        if (ip) {
+          localStorage.setItem('apptest_bypass_ip', ip);
+          const docId = ip.replace(/\./g, '_');
+          try {
+            await setDoc(doc(db, 'apptest_ips', docId), {
+              ip: ip,
+              unlockedAt: new Date().toISOString(),
+              expiresAt: expiresAt
+            });
+          } catch (dbErr) {
+            console.warn("Could not save IP to cloud DB, but completing local access flow:", dbErr);
+          }
+        }
+
+        setUserAccess({
+          isForever: true,
+          trialRemaining: 999,
+          redeemedCodes: [],
+          updatedAt: new Date().toISOString()
+        });
+
+        setToast({ message: "APPTEST beviljad! Fri tillgång i 14 dagar.", type: 'success' });
+        setShowAppTestModal(false);
+        setAppTestPassword('');
+        setAppTestBypassActive(true);
+        
+        // Auto-close ChoiceModal/Landing and start app to let them run immediately
+        setShowChoiceModal(false);
+        setShowLanding(false);
+        confirmNewStudy();
+      } catch (err) {
+        console.error("APPTEST save failed:", err);
+        setAppTestError("Kunde inte spara åtkomst, försök igen.");
+      } finally {
+        setIsVerifyingAppTest(false);
+      }
+    } else {
+      setAppTestError("Fel lösenord. Försök igen.");
+    }
+  };
+
+  const handleStartFreeTrial = () => {
+    if (freeTrialCount >= 3) {
+      alert("Dina 3 gratistester är slut! Köp en licens för att göra fler studier.");
+      handleOpenCheckout();
+      return;
+    }
+
+    const newCount = freeTrialCount + 1;
+    setFreeTrialCount(newCount);
+    localStorage.setItem('digicap_free_trial_count', String(newCount));
+    localStorage.setItem('digicap_free_trial_active', 'true');
+
+    if (newCount === 3) {
+      setShowLastFreeTrialWarningModal(true);
+    } else {
+      setToast({ message: `Gratistest ${newCount} av 3 påbörjat.`, type: 'success' });
+      setShowChoiceModal(false);
+      setShowLanding(false);
+      confirmNewStudy();
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -648,7 +926,8 @@ const App: React.FC = () => {
 
     // Strict enforcement of trial limits on mount
     const hasActiveStudy = !!localStorage.getItem('digicap_study_data') || (recentStudies.length > 0);
-    if (!userAccess?.isForever && (userAccess?.trialRemaining || 0) <= 0 && !hasActiveStudy && !showLanding) {
+    const isFreeTrialActiveAndValid = freeTrialCount > 0 && freeTrialCount <= 3;
+    if (!userAccess?.isForever && (userAccess?.trialRemaining || 0) <= 0 && !hasActiveStudy && !showLanding && !isFreeTrialActiveAndValid) {
       // If no trials left and no active study, show ended modal
       // but wait for userAccess to load
       if (userAccess) setShowTrialEndedModal(true);
@@ -926,6 +1205,10 @@ const App: React.FC = () => {
     if (isDemoMode) return true;
     if (userAccess?.isForever) return true;
     
+    // Check if within 3-test free trial
+    const isFreeTrialActiveAndValid = freeTrialCount > 0 && freeTrialCount <= 3;
+    if (isFreeTrialActiveAndValid) return true;
+    
     // If study already counted this session, allow
     if (trialData.lastStudyId === studyInfo.id) return true;
 
@@ -977,6 +1260,13 @@ const App: React.FC = () => {
           isAnalyzed: true 
         });
         setIsDataDirty(false);
+        logTelemetry('Run CPK Analysis', {
+          measure_name: activeMeasure.name || 'Unnamed',
+          sample_count: activeMeasure.data.length,
+          distribution: activeMeasure.distribution,
+          cpk: stats.cpk || 0,
+          cp: stats.cp || 0
+        });
       }
     } catch (error) {
       console.error("Analysis crashed:", error);
@@ -1009,6 +1299,10 @@ const App: React.FC = () => {
         const html2pdf = (window as any).html2pdf;
         if (html2pdf) {
           await html2pdf().set(opt).from(element).save();
+          logTelemetry('PDF Export', {
+            part_number: studyInfo.partNumber || 'Unnamed',
+            measure_name: activeMeasure.name || 'Unnamed'
+          });
         } else {
           alert(t.pdfLibError);
         }
@@ -1021,31 +1315,47 @@ const App: React.FC = () => {
     }, 200);
   };
 
-  const handleExportExcel = () => {
+  const runExcelExport = (selectedIds: string[]) => {
     if (isExporting) return;
     setIsExporting(true);
     
     setTimeout(() => {
       try {
         const wb = XLSX.utils.book_new();
-        let combinedRows: any[] = [];
+        const targetMeasures = measures.filter(m => selectedIds.includes(m.id));
         
-        combinedRows.push({ A: t.reportExportTitle, B: "" });
-        combinedRows.push({ A: t.date, B: studyInfo.date });
-        combinedRows.push({ A: "", B: "" });
+        if (targetMeasures.length === 0) {
+          alert(language === 'sv' ? "Inga mått valda för export." : "No metrics selected for export.");
+          setIsExporting(false);
+          return;
+        }
 
-        combinedRows.push({ A: t.studyInfo.toUpperCase(), B: "" });
-        combinedRows.push({ A: t.partNo, B: studyInfo.partNumber });
-        combinedRows.push({ A: t.revision, B: studyInfo.revision });
-        combinedRows.push({ A: t.machineNo, B: studyInfo.machineNumber });
-        combinedRows.push({ A: t.performedBy, B: studyInfo.performedBy });
-        combinedRows.push({ A: "", B: "" });
+        const measuresWithStats = targetMeasures.filter(m => m.stats);
+        if (measuresWithStats.length === 0) {
+          alert(language === 'sv' ? "De valda måtten har ingen beräknad statistik än." : "The selected metrics do not have any calculated statistics yet.");
+          setIsExporting(false);
+          return;
+        }
 
-        const targetMeasures = showOverlayReport ? measures.filter(m => overlayMeasureIds.includes(m.id)) : [activeMeasure];
-        
-        targetMeasures.forEach((m) => {
-          if (!m.stats) return;
+        logTelemetry('Excel Export', {
+          count_measures: measuresWithStats.length,
+          measure_names: measuresWithStats.map(m => m.name || 'Unnamed').join(', ')
+        });
+
+        measuresWithStats.forEach((m, idx) => {
+          let combinedRows: any[] = [];
           
+          combinedRows.push({ A: t.reportExportTitle, B: "" });
+          combinedRows.push({ A: t.date, B: studyInfo.date });
+          combinedRows.push({ A: "", B: "" });
+
+          combinedRows.push({ A: t.studyInfo.toUpperCase(), B: "" });
+          combinedRows.push({ A: t.partNo, B: studyInfo.partNumber });
+          combinedRows.push({ A: t.revision, B: studyInfo.revision });
+          combinedRows.push({ A: t.machineNo, B: studyInfo.machineNumber });
+          combinedRows.push({ A: t.performedBy, B: studyInfo.performedBy });
+          combinedRows.push({ A: "", B: "" });
+
           const isMachine = studyInfo.studyType === 'Machine';
           const isPerformance = studyInfo.studyType === 'Performance';
           
@@ -1055,14 +1365,14 @@ const App: React.FC = () => {
           // Prepend zero-width space to force left alignment in Excel
           const zws = "\u200B";
 
-          combinedRows.push({ A: `--- ${m.name.toUpperCase() || t.reportDataLog.toUpperCase()} ---`, B: "" });
-          combinedRows.push({ A: label1, B: zws + m.stats.cpk.toFixed(4) });
-          combinedRows.push({ A: label2, B: zws + (m.stats.cp?.toFixed(4) || t.notAvailable) });
-          combinedRows.push({ A: t.mean, B: zws + m.stats.mean.toFixed(6) });
-          combinedRows.push({ A: t.stdDev, B: zws + m.stats.stdDev.toFixed(6) });
-          combinedRows.push({ A: t.min, B: zws + m.stats.min.toFixed(6) });
-          combinedRows.push({ A: t.max, B: zws + m.stats.max.toFixed(6) });
-          combinedRows.push({ A: t.range, B: zws + (m.stats.max - m.stats.min).toFixed(6) });
+          combinedRows.push({ A: `--- ${(m.name || (language === 'sv' ? `MÅTT ${idx + 1}` : `MEASURE ${idx + 1}`)).toUpperCase()} ---`, B: "" });
+          combinedRows.push({ A: label1, B: zws + m.stats!.cpk.toFixed(4) });
+          combinedRows.push({ A: label2, B: zws + (m.stats!.cp?.toFixed(4) || t.notAvailable) });
+          combinedRows.push({ A: t.mean, B: zws + m.stats!.mean.toFixed(6) });
+          combinedRows.push({ A: t.stdDev, B: zws + m.stats!.stdDev.toFixed(6) });
+          combinedRows.push({ A: t.min, B: zws + m.stats!.min.toFixed(6) });
+          combinedRows.push({ A: t.max, B: zws + m.stats!.max.toFixed(6) });
+          combinedRows.push({ A: t.range, B: zws + (m.stats!.max - m.stats!.min).toFixed(6) });
           
           combinedRows.push({ A: "", B: "" });
           combinedRows.push({ A: t.reportDataLog.toUpperCase(), B: "" });
@@ -1070,12 +1380,26 @@ const App: React.FC = () => {
             combinedRows.push({ A: `${t.sample} ${i+1}`, B: zws + d.value });
           });
           combinedRows.push({ A: "", B: "" });
+
+          const ws = XLSX.utils.json_to_sheet(combinedRows, { skipHeader: true });
+          ws['!cols'] = [{ wch: 25 }, { wch: 60 }];
+
+          let sheetName = m.name?.trim() || (language === 'sv' ? `Mått ${idx + 1}` : `Measure ${idx + 1}`);
+          sheetName = sheetName.replace(/[\\/?*\[\]]/g, "_");
+          if (sheetName.length > 30) {
+            sheetName = sheetName.substring(0, 30);
+          }
+          
+          let finalSheetName = sheetName;
+          let counter = 1;
+          while (wb.SheetNames.includes(finalSheetName)) {
+            finalSheetName = `${sheetName.substring(0, 27)}_${counter}`;
+            counter++;
+          }
+
+          XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
         });
 
-        const ws = XLSX.utils.json_to_sheet(combinedRows, { skipHeader: true });
-        ws['!cols'] = [{ wch: 25 }, { wch: 60 }];
-
-        XLSX.utils.book_append_sheet(wb, ws, "Analysis");
         XLSX.writeFile(wb, `Digicap_${studyInfo.partNumber || 'Export'}.xlsx`);
       } catch (error) {
         console.error("Excel export failed:", error);
@@ -1084,6 +1408,23 @@ const App: React.FC = () => {
         setIsExporting(false);
       }
     }, 200);
+  };
+
+  const handleExportExcel = () => {
+    if (isExporting) return;
+    
+    if (measures.length > 1) {
+      // Pre-select all measures with stats by default
+      const withStats = measures.filter(m => m.stats).map(m => m.id);
+      if (withStats.length > 0) {
+        setExportSelectedMeasureIds(withStats);
+      } else {
+        setExportSelectedMeasureIds([activeMeasureId]);
+      }
+      setShowExportExcelModal(true);
+    } else {
+      runExcelExport([activeMeasureId]);
+    }
   };
 
   const handleOpenCheckout = useCallback(async (e?: React.MouseEvent) => {
@@ -1187,7 +1528,8 @@ const App: React.FC = () => {
     const hasActiveStudy = !!localStorage.getItem('digicap_study_data') || (recentStudies.length > 0);
     
     // Only block if locked AND no active study to view
-    if (userAccess !== null && !userAccess.isForever && (userAccess.trialRemaining || 0) <= 0 && !hasActiveStudy) {
+    const isFreeTrialActiveAndValid = freeTrialCount > 0 && freeTrialCount <= 3;
+    if (userAccess !== null && !userAccess.isForever && (userAccess.trialRemaining || 0) <= 0 && !hasActiveStudy && !isFreeTrialActiveAndValid) {
       setShowTrialEndedModal(true);
       return;
     }
@@ -1304,6 +1646,15 @@ const App: React.FC = () => {
       confirmNewStudy();
       return;
     }
+    
+    // Check if free trial limits are exceeded and block new study creation
+    if (freeTrialCount >= 3 && !userAccess?.isForever) {
+      setShowNewStudyConfirm(false);
+      setShowChoiceModal(true); // Exposes ChoiceModal where Testa Gratis is disabled, forcing Buy/Login
+      setToast({ message: "Dina 3 gratistester är slut! Köp licens för att göra fler studier.", type: 'error' });
+      return;
+    }
+
     setShowNewStudyConfirm(false);
     setShowChoiceModal(true); // Show the 4-choice menu instead
   };
@@ -1392,6 +1743,20 @@ const App: React.FC = () => {
               >
                 <Plus className="w-5 h-5 text-emerald-200" />
                 <span className="text-[11px]">{t.newStudyOptionBuy}</span>
+              </button>
+
+              <button 
+                onClick={handleStartFreeTrial}
+                disabled={freeTrialCount >= 3}
+                className={`w-full py-4 ${freeTrialCount >= 3 ? 'bg-slate-800/60 border border-slate-700 text-slate-500 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700 text-white border border-amber-400/30 shadow-lg active:scale-95 duration-150'} font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-start px-6 gap-4`}
+              >
+                <Sparkles className={`w-5 h-5 ${freeTrialCount >= 3 ? 'text-slate-600' : 'text-amber-200'}`} />
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="text-[11px]">Testa appen gratis (3 tester)</span>
+                  <span className="text-[8px] opacity-70 font-mono tracking-tight">
+                    {freeTrialCount >= 3 ? 'GRATISTESTER FÖRBRUKADE' : `${3 - freeTrialCount} provtester kvar`}
+                  </span>
+                </div>
               </button>
 
               <button 
@@ -1525,7 +1890,78 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Welcome Modal */}
+      {/* APPTEST Password Prompt Modal */}
+      {showAppTestModal && (
+        <div className="fixed inset-0 z-[2000] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-amber-500 max-w-sm w-full p-8 shadow-2xl rounded-2xl text-center space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto">
+              <Key className="w-6 h-6 text-amber-500" />
+            </div>
+            <h3 className="text-lg font-black text-white uppercase tracking-wider">APPTEST TILLGÅNG</h3>
+            <p className="text-slate-400 text-xs font-bold">Ange lösenord för att få obehindrad tillgång till appen i 14 dagar.</p>
+            
+            <input 
+              type="password"
+              value={appTestPassword}
+              onChange={(e) => {
+                setAppTestPassword(e.target.value);
+                if (appTestError) setAppTestError('');
+              }}
+              placeholder="Lösenord"
+              className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            
+            {appTestError && (
+              <p className="text-rose-500 text-xs font-bold">{appTestError}</p>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button 
+                onClick={() => { setShowAppTestModal(false); setAppTestError(''); setAppTestPassword(''); }}
+                className="py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+              >
+                Avbryt
+              </button>
+              <button 
+                onClick={handleVerifyAppTestPassword}
+                disabled={isVerifyingAppTest}
+                className="py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                {isVerifyingAppTest ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Bevilja'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Last Free Trial Warning Modal */}
+      {showLastFreeTrialWarningModal && (
+        <div className="fixed inset-0 z-[1600] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm bg-slate-900 border-2 border-amber-500 rounded-3xl p-8 shadow-2xl text-center space-y-6">
+            <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Clock className="w-8 h-8 text-amber-500 animate-pulse" />
+            </div>
+            <h2 className="text-xl font-black text-white uppercase tracking-wider">SISTA GRATISTESTET</h2>
+            <p className="text-slate-300 text-sm leading-relaxed font-bold">
+              Det här är din sista gratis testomgång. Du kan avsluta och utföra detta 3:e test komplett inklusive analyser och rapporter.<br/><br/>
+              När du därefter påbörjar ett nytt test kommer du att behöva köpa en licens.
+            </p>
+            <button 
+              onClick={() => {
+                setShowLastFreeTrialWarningModal(false);
+                setToast({ message: "Sista gratistestet påbörjat.", type: 'success' });
+                setShowChoiceModal(false);
+                setShowLanding(false);
+                confirmNewStudy();
+              }}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest rounded-xl transition-all shadow-lg font-bold"
+            >
+              AVSLUTA KOMPLETT
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Trial Ended Modal */}
       {showTrialEndedModal && (
         <div className="fixed inset-0 z-[1500] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-6">
@@ -1606,42 +2042,54 @@ const App: React.FC = () => {
             }}
             onLicenseLogin={() => setShowLicenseLogin(true)}
             themeColor={currentTheme} 
+            logoColorClass={logoTheme.text}
             language={language} 
             onLanguageChange={handleLanguageChange} 
             userAccess={userAccess}
           />
         </PhoneFrame>
       ) : (
-        <div key={studyKey} className={`h-[100dvh] flex flex-col font-sans ${themeMode === 'dark' ? 'text-slate-100' : 'text-slate-900'} ${colors.bg} relative border-[8px] md:border-[12px] ${currentTheme.border} md:rounded-[32px] overflow-hidden shadow-2xl`}>
+        <div key={studyKey} className={`h-[100dvh] flex flex-col font-sans ${themeMode === 'dark' ? 'text-slate-100' : 'text-slate-900'} ${colors.bg} relative border-[8px] md:border-[12px] border-slate-400/50 dark:border-slate-700/60 md:rounded-[32px] overflow-hidden shadow-2xl`}>
           <div className="shrink-0 z-50 sticky top-0 shadow-lg">
-            <header className={`${colors.header} text-white border-b-4 ${currentTheme.hex === '#1e3a8a' ? 'border-blue-900' : currentTheme.border} pt-2 pb-2`}>
+            <header className={`${colors.header} text-white border-b-4 ${currentTheme.hex === '#1e3a8a' ? 'border-blue-900' : 'border-slate-400/50 dark:border-slate-700/60'} pt-2 pb-2`}>
           <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center md:items-start justify-between gap-3 md:gap-0">
             <div className="flex flex-col items-center py-0 px-2 mt-[1px]">
               <div className="flex flex-row items-start justify-center gap-3 flex-wrap">
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-start">
                   <h1 
                     onClick={() => setShowLanding(true)}
-                    className="text-2xl font-black tracking-tight text-amber-500 leading-none flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                    className={`relative text-2xl font-black tracking-normal ${logoTheme.text} leading-none flex items-center justify-start cursor-pointer hover:opacity-80 transition-opacity`}
                     title={t.tooltipHome}
+                    style={{ 
+                      textShadow: '-0.4px -0.4px 0 rgba(255, 255, 255, 0.45), 0.4px -0.4px 0 rgba(255, 255, 255, 0.45), -0.4px 0.4px 0 rgba(255, 255, 255, 0.45), 0.4px 0.4px 0 rgba(255, 255, 255, 0.45)' 
+                    }}
                   >
                     DIGICAP
-                    <span className="text-[7px] font-bold text-slate-300 ml-0.5 mt-[-12px] align-top select-none">®</span>
+                    <span className="absolute left-[calc(100%+1.5px)] top-[0px] text-[7px] font-bold text-slate-300 select-none" style={{ WebkitTextStroke: 'none', textShadow: 'none' }}>®</span>
                   </h1>
-                  <p className="text-[7px] text-slate-400 font-medium tracking-[0.15em] uppercase mt-[-2px] text-center">{t.appSubtitle}</p>
+                  <div 
+                    className="w-full mt-[-1px] uppercase text-slate-400 text-[6.2px] font-semibold flex justify-between select-none"
+                  >
+                    {t.appSubtitle.split("").map((char, idx) => (
+                      <span key={idx}>
+                        {char === " " ? "\u00A0" : char}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
             <div className="flex flex-row md:flex-col items-center md:items-end gap-2 mt-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <button onClick={handleLoad} className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 border-slate-700 text-slate-300 hover:text-white transition-all active:scale-90 shrink-0 font-mono bg-slate-800/50`} title={t.tooltipOpen}><FolderOpen className="w-4 h-4 sm:w-4 sm:h-4" /></button>
-                <button onClick={handleSave} className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 border-slate-700 text-slate-300 hover:text-white transition-all active:scale-90 shrink-0 font-mono bg-slate-800/50`} title={t.tooltipSave} disabled={isSaving}>{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}</button>
-                <button onClick={() => setShowAbout(true)} className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 border-slate-700 text-slate-300 hover:text-white transition-all active:scale-90 shrink-0 font-mono bg-slate-800/50`} title={t.tooltipAbout}><Info className="w-4 h-4 sm:w-4 sm:h-4" /></button>
+                <button onClick={handleLoad} className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 border-slate-400 dark:border-slate-500 text-slate-200 hover:text-white transition-all active:scale-90 shrink-0 font-mono bg-gradient-to-b from-slate-800 via-slate-800/80 to-slate-900 shadow-sm`} title={t.tooltipOpen}><FolderOpen className="w-4 h-4 sm:w-4 sm:h-4" /></button>
+                <button onClick={handleSave} className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 border-slate-400 dark:border-slate-500 text-slate-200 hover:text-white transition-all active:scale-90 shrink-0 font-mono bg-gradient-to-b from-slate-800 via-slate-800/80 to-slate-900 shadow-sm`} title={t.tooltipSave} disabled={isSaving}>{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}</button>
+                <button onClick={() => setShowAbout(true)} className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 border-slate-400 dark:border-slate-500 text-slate-200 hover:text-white transition-all active:scale-90 shrink-0 font-mono bg-gradient-to-b from-slate-800 via-slate-800/80 to-slate-900 shadow-sm`} title={t.tooltipAbout}><Info className="w-4 h-4 sm:w-4 sm:h-4" /></button>
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowSettings(true);
                   }} 
-                  className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 border-slate-700 text-slate-300 hover:text-white transition-all active:scale-110 active:bg-slate-700 shrink-0 font-mono bg-slate-800/50 relative z-[100] cursor-pointer`} 
+                  className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 border-slate-400 dark:border-slate-500 text-slate-200 hover:text-white transition-all active:scale-110 active:bg-slate-700 shrink-0 font-mono bg-gradient-to-b from-slate-800 via-slate-800/80 to-slate-900 relative z-[100] cursor-pointer shadow-sm`} 
                   title={t.tooltipSettings}
                 >
                   <Settings className="w-4 h-4 sm:w-4 sm:h-4" />
@@ -1652,7 +2100,7 @@ const App: React.FC = () => {
                   type="button"
                   onClick={handleExportExcel} 
                   title={t.tooltipExcel}
-                  className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 transition-all active:scale-90 shrink-0 ${activeMeasure.stats && !isExporting ? 'border-slate-700 text-emerald-400 hover:text-emerald-300 bg-slate-800/50' : 'border-slate-800 text-slate-600 opacity-50 cursor-not-allowed'} relative z-10 font-mono`} 
+                  className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 transition-all active:scale-90 shrink-0 ${activeMeasure.stats && !isExporting ? 'border-slate-400 dark:border-slate-500 text-emerald-400 hover:text-emerald-300 bg-gradient-to-b from-slate-800 to-slate-900' : 'border-slate-800 text-slate-600 opacity-50 cursor-not-allowed'} relative z-10 font-mono`} 
                   disabled={!activeMeasure.stats || isExporting}
                 >
                   {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 sm:w-4 sm:h-4" />}
@@ -1661,7 +2109,7 @@ const App: React.FC = () => {
                   type="button"
                   onClick={handleExportPdf} 
                   title={t.tooltipPdf}
-                  className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 transition-all active:scale-90 shrink-0 ${activeMeasure.stats && !isExporting ? 'border-slate-700 text-emerald-400 hover:text-emerald-300 bg-slate-800/50' : 'border-slate-800 text-slate-600 opacity-50 cursor-not-allowed'} relative z-10 font-mono`} 
+                  className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border-2 transition-all active:scale-90 shrink-0 ${activeMeasure.stats && !isExporting ? 'border-slate-400 dark:border-slate-500 text-emerald-400 hover:text-emerald-300 bg-gradient-to-b from-slate-800 to-slate-900' : 'border-slate-800 text-slate-600 opacity-50 cursor-not-allowed'} relative z-10 font-mono`} 
                   disabled={!activeMeasure.stats || isExporting}
                 >
                   {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4 sm:w-4 sm:h-4" />}
@@ -1985,14 +2433,29 @@ const App: React.FC = () => {
               <div className={`${themeMode === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-black'} border-4 max-w-sm md:max-w-lg w-full shadow-2xl overflow-hidden flex flex-col transition-all`} onClick={(e) => e.stopPropagation()}>
                   <div className={`px-5 py-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-300'} border-b-2 flex justify-between items-center`}><div className="flex items-center gap-2"><Info className={`w-5 h-5 ${themeMode === 'dark' ? 'text-slate-400' : 'text-slate-900'}`} /> <h3 className={`font-bold text-sm uppercase tracking-widest ${themeMode === 'dark' ? 'text-slate-100' : 'text-black'}`}>{t.aboutTitle}</h3></div><button onClick={() => setShowAbout(false)}><X className="w-6 h-6 text-slate-500" /></button></div>
                   <div className="p-8 space-y-8 overflow-y-auto max-h-[75vh] custom-scrollbar">
-                      <div className="flex flex-col items-center text-center">
-                        <h2 
-                          onClick={handleAdminTrigger}
-                          className={`text-3xl font-black uppercase tracking-tighter ${themeMode === 'dark' ? 'text-white' : 'text-slate-900'} mb-1 cursor-default select-none`}
-                        >
-                          DIGICAP<span className="text-[9px] font-bold text-slate-400 ml-0.5 mt-[-12px] align-top select-none">®</span>
-                        </h2>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.25em] mt-0 mb-6">{t.appSubtitle}</p>
+                      <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-start">
+                          <h2 
+                            onClick={handleAdminTrigger}
+                            className={`relative text-3xl font-black uppercase tracking-[0.02em] ${themeMode === 'dark' ? logoTheme.text : 'text-slate-900'} mb-1 cursor-default select-none flex items-start`}
+                            style={{ 
+                              textShadow: themeMode === 'dark'
+                                ? '-0.4px -0.4px 0 rgba(255, 255, 255, 0.45), 0.4px -0.4px 0 rgba(255, 255, 255, 0.45), -0.4px 0.4px 0 rgba(255, 255, 255, 0.45), 0.4px 0.4px 0 rgba(255, 255, 255, 0.45)'
+                                : '-0.4px -0.4px 0 rgba(0, 0, 0, 0.15), 0.4px -0.4px 0 rgba(0, 0, 0, 0.15), -0.4px 0.4px 0 rgba(0, 0, 0, 0.15), 0.4px 0.4px 0 rgba(0, 0, 0, 0.15)'
+                            }}
+                          >
+                            DIGICAP<span className="absolute left-[calc(100%+2px)] top-[1px] text-[9px] font-bold text-slate-400 select-none" style={{ WebkitTextStroke: 'none', textShadow: 'none' }}>®</span>
+                          </h2>
+                          <div 
+                            className="w-full mt-[-1px] mb-6 uppercase text-slate-400 text-[7.2px] font-semibold flex justify-between select-none"
+                          >
+                            {t.appSubtitle.split("").map((char, idx) => (
+                              <span key={idx}>
+                                {char === " " ? "\u00A0" : char}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                         
                         <div className={`p-5 border-2 ${currentTheme.border} bg-slate-50 rounded-sm mb-2 text-left`}>
                             <p className="text-[12px] font-bold text-slate-700 leading-relaxed">
@@ -2018,18 +2481,48 @@ const App: React.FC = () => {
                               <a href={`mailto:${t.contactEmail}`} className={`text-xs font-black ${themeMode === 'dark' ? 'text-white' : currentTheme.text} flex items-center gap-2 hover:underline`}><Mail className="w-3 h-3" /> {t.contactEmail}</a>
                             </div>
                           </div>
+
+                          <div className={`grid grid-cols-2 gap-3 pt-6 border-t-2 ${themeMode === 'dark' ? 'border-slate-800' : 'border-slate-100'}`}>
+                              <button onClick={() => setShowTerms(true)} className={`px-2 py-3 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'} border-2 text-[10px] font-black uppercase tracking-widest transition-all`}>{t.termsTitle}</button>
+                              <button onClick={() => setShowPrivacy(true)} className={`px-2 py-3 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'} border-2 text-[10px] font-black uppercase tracking-widest transition-all`}>{t.privacyTitle}</button>
+                              <button 
+                                onClick={() => { setShowFormulaDocument(true); }} 
+                                className={`col-span-2 px-2 py-3 ${themeMode === 'dark' ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-500 hover:bg-emerald-900/30' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'} border-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2`}
+                              >
+                                <Calculator className="w-3 h-3" />
+                                {t.formulaDocumentTitle}
+                              </button>
+                          </div>
                       </div>
 
-                      <div className={`grid grid-cols-2 gap-3 pt-6 border-t-2 ${themeMode === 'dark' ? 'border-slate-800' : 'border-slate-100'}`}>
-                          <button onClick={() => setShowTerms(true)} className={`px-2 py-3 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'} border-2 text-[10px] font-black uppercase tracking-widest transition-all`}>{t.termsTitle}</button>
-                          <button onClick={() => setShowPrivacy(true)} className={`px-2 py-3 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'} border-2 text-[10px] font-black uppercase tracking-widest transition-all`}>{t.privacyTitle}</button>
-                          <button 
-                            onClick={() => { setShowFormulaDocument(true); }} 
-                            className={`col-span-2 px-2 py-3 ${themeMode === 'dark' ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-500 hover:bg-emerald-900/30' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'} border-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2`}
-                          >
-                            <Calculator className="w-3 h-3" />
-                            {t.formulaDocumentTitle}
-                          </button>
+                      {/* Color Selector */}
+                      <div className={`pt-6 border-t-2 ${themeMode === 'dark' ? 'border-slate-800' : 'border-slate-100'} space-y-3`}>
+                        <label className="text-[10px] font-black uppercase tracking-[0.20em] text-slate-400 block">
+                          {language === 'sv' ? 'VÄLJ FÄRGTEMA (LOGOTYP)' : 'CHOOSE COLOR THEME (LOGO)'}
+                        </label>
+                        <div className="grid grid-cols-5 gap-2">
+                          {Object.entries(themeColors).map(([key, col]: [string, any]) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => {
+                                handleColorChange(key as AppColor);
+                              }}
+                              className={`p-2 rounded-sm border-2 flex flex-col items-center justify-center gap-1.5 transition-all text-center relative overflow-hidden ${
+                                appColor === key 
+                                  ? 'bg-slate-800 border-slate-500 shadow-lg' 
+                                  : 'bg-slate-950/50 border-transparent hover:border-slate-800'
+                              }`}
+                              style={{ borderColor: appColor === key ? col.hex : undefined }}
+                              title={col.name}
+                            >
+                              <div className="w-4 h-4 rounded-full shadow-inner" style={{ backgroundColor: col.hex }} />
+                              <span className="text-[8px] font-black uppercase tracking-normal text-slate-300">
+                                {key === 'orange' ? 'AMBER' : key.toUpperCase()}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       <div className="pt-2">
@@ -2042,6 +2535,107 @@ const App: React.FC = () => {
                       </div>
                   </div>
                   <div className={`p-6 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-200 border-slate-300'} border-t-2`}><button onClick={() => setShowAbout(false)} className={`w-full py-3.5 ${themeMode === 'dark' ? 'bg-white text-black' : 'bg-black text-white'} font-black text-[12px] uppercase tracking-[0.2em]`}>{t.close}</button></div>
+              </div>
+          </div>
+      )}
+
+      {showExportExcelModal && (
+          <div className="fixed inset-0 z-[1200] bg-slate-900/85 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setShowExportExcelModal(false)}>
+              <div className="bg-slate-900 border-slate-700 border-4 max-w-md w-full shadow-2xl flex flex-col transition-all rounded-sm" onClick={(e) => e.stopPropagation()}>
+                  <div className="px-5 py-4 bg-slate-800 border-slate-700 border-b-2 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                      <h3 className="font-bold text-sm uppercase tracking-widest text-slate-100">
+                        {language === 'sv' ? "Exportera till Excel" : "Export to Excel"}
+                      </h3>
+                    </div>
+                    <button onClick={() => setShowExportExcelModal(false)}>
+                      <X className="w-6 h-6 text-slate-500 hover:text-slate-300" />
+                    </button>
+                  </div>
+                  
+                  <div className="p-6 space-y-5 overflow-y-auto max-h-[60vh] custom-scrollbar">
+                    <p className="text-[11px] font-bold text-slate-400 leading-relaxed uppercase tracking-wider">
+                      {language === 'sv' 
+                        ? "Välj vilka mått du vill inkludera i exporten. Varje mått skapas på en egen flik i samma Excel-fil." 
+                        : "Select which metrics you want to include in the export. Each metric will be placed on its own sheet in the same Excel file."}
+                    </p>
+                    
+                    <div className="space-y-2">
+                      {measures.map((m, idx) => {
+                        const hasStats = !!m.stats;
+                        const isChecked = exportSelectedMeasureIds.includes(m.id);
+                        const displayName = m.name?.trim() || (language === 'sv' ? `Mått ${idx + 1}` : `Measure ${idx + 1}`);
+                        
+                        return (
+                          <label 
+                            key={m.id} 
+                            className={`flex items-start gap-3 p-3 border-2 rounded-sm transition-all cursor-pointer ${
+                              !hasStats 
+                                ? 'border-slate-800 opacity-50 bg-slate-950/20 cursor-not-allowed' 
+                                : isChecked 
+                                ? 'border-emerald-500 bg-emerald-500/5' 
+                                : 'border-slate-700 hover:border-slate-600 bg-slate-950/40 hover:bg-slate-950/60'
+                            }`}
+                          >
+                            <input 
+                              type="checkbox"
+                              disabled={!hasStats}
+                              checked={isChecked}
+                              onChange={() => {
+                                if (!hasStats) return;
+                                if (isChecked) {
+                                  setExportSelectedMeasureIds(prev => prev.filter(id => id !== m.id));
+                                } else {
+                                  setExportSelectedMeasureIds(prev => [...prev, m.id]);
+                                }
+                              }}
+                              className="mt-0.5 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900 bg-slate-800"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-black text-slate-100 block truncate uppercase tracking-wide">
+                                {displayName}
+                              </span>
+                              {!hasStats ? (
+                                <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-500 block">
+                                  {language === 'sv' ? "Saknar statistik (analysera först)" : "No analysis (run calculation first)"}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">
+                                  {language === 'sv' 
+                                    ? `Värden: ${m.data.length} st • Status: Klar` 
+                                    : `Samples: ${m.data.length} • Status: Ready`}
+                                </span>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  <div className="p-5 border-t-2 border-slate-700 bg-slate-800 flex gap-3">
+                    <button 
+                      onClick={() => setShowExportExcelModal(false)}
+                      className="flex-1 py-3 border-2 border-slate-600 text-slate-300 font-bold text-xs uppercase tracking-widest hover:bg-slate-700 transition-all rounded-sm"
+                    >
+                      {language === 'sv' ? "Avbryt" : "Cancel"}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setShowExportExcelModal(false);
+                        runExcelExport(exportSelectedMeasureIds);
+                      }}
+                      disabled={exportSelectedMeasureIds.length === 0}
+                      className={`flex-1 py-3 text-white font-black text-xs uppercase tracking-widest transition-all rounded-sm cursor-pointer ${
+                        exportSelectedMeasureIds.length === 0 
+                          ? 'bg-slate-700 opacity-50 cursor-not-allowed' 
+                          : 'bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-950/40 active:scale-[0.98]'
+                      }`}
+                    >
+                      {language === 'sv' ? "Exportera" : "Export"}
+                    </button>
+                  </div>
               </div>
           </div>
       )}
@@ -2133,7 +2727,7 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+                <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center flex-wrap gap-2">
                   <div className="flex gap-4">
                     <button 
                       onClick={() => setAdminTab('licenses')}
@@ -2147,57 +2741,226 @@ const App: React.FC = () => {
                     >
                       Raw Logs ({webhookLogs.length})
                     </button>
+                    <button 
+                      onClick={() => setAdminTab('activity')}
+                      className={`text-[10px] font-black uppercase tracking-widest ${adminTab === 'activity' ? 'text-blue-500' : 'text-slate-500'}`}
+                    >
+                      User Activity ({userActivities.length})
+                    </button>
                   </div>
                   <button onClick={fetchWebhookLogs} disabled={isLoadingLogs} className="text-blue-500 hover:text-blue-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
                     <RefreshCw className={`w-3 h-3 ${isLoadingLogs ? 'animate-spin' : ''}`} /> Refresh
                   </button>
                 </div>
+                
+                {/* Admin Live Search Console */}
+                <div className="p-3 bg-slate-900 border-b border-slate-800">
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="SÖK EFTER E-POST, STATUS, ORDER ID, NYCKEL ELLER PRODUKT..." 
+                      value={adminSearch}
+                      onChange={(e) => setAdminSearch(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-[9px] uppercase tracking-widest font-bold px-3 py-2 rounded-sm focus:outline-none focus:border-blue-500 placeholder-slate-700"
+                    />
+                    {adminSearch && (
+                      <button 
+                        onClick={() => setAdminSearch('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-[9px] font-black uppercase"
+                      >
+                        [Rensa]
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                  {adminTab === 'logs' ? (
-                    webhookLogs.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-2">
-                        <WifiOff className="w-8 h-8 opacity-20" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">No logs found</p>
-                      </div>
-                    ) : (
-                      webhookLogs.map((log, i) => (
-                        <div key={i} className="bg-slate-950 border border-slate-800 p-4 space-y-2">
-                          <div className="flex justify-between items-start">
-                            <span className="bg-blue-900/30 text-blue-400 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-blue-800/50">
-                              {log.eventName}
-                            </span>
-                            <span className="text-slate-600 text-[9px] font-mono">
-                              {new Date(log.timestamp).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-300 font-bold">{log.email}</div>
+                  {adminTab === 'activity' ? (
+                    (() => {
+                      const filteredActivities = userActivities.filter(act => 
+                        !adminSearch ||
+                        act.email?.toLowerCase().includes(adminSearch.toLowerCase()) || 
+                        act.action?.toLowerCase().includes(adminSearch.toLowerCase()) ||
+                        JSON.stringify(act.details || {}).toLowerCase().includes(adminSearch.toLowerCase())
+                      );
+
+                      return filteredActivities.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-2 py-8">
+                          <Clock className="w-8 h-8 opacity-20" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">No activities match search</p>
                         </div>
-                      ))
-                    )
+                      ) : (
+                        filteredActivities.map((act, i) => (
+                          <div key={i} className="bg-slate-950 border border-slate-800 p-4 rounded-sm space-y-2">
+                            <div className="flex justify-between items-start gap-4">
+                              <span className="bg-amber-950/30 text-amber-500 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-amber-800/40">
+                                {act.action}
+                              </span>
+                              <span className="text-slate-600 text-[9px] font-mono">
+                                {new Date(act.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-200 font-bold break-all">{act.email}</div>
+                            {act.details && Object.keys(act.details).length > 0 && (
+                              <div className="bg-slate-900/50 border border-slate-900 p-2 rounded-sm text-[8px] font-mono text-slate-400 space-y-1">
+                                {Object.entries(act.details).map(([key, value]) => (
+                                  <div key={key} className="flex justify-between">
+                                    <span className="text-slate-600 uppercase font-bold">{key}:</span>
+                                    <span className="text-blue-400 font-bold">{String(value)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      );
+                    })()
+                  ) : adminTab === 'logs' ? (
+                    (() => {
+                      const filteredLogs = webhookLogs.filter(log => 
+                        !adminSearch ||
+                        log.email?.toLowerCase().includes(adminSearch.toLowerCase()) || 
+                        log.eventName?.toLowerCase().includes(adminSearch.toLowerCase()) || 
+                        log.status?.toLowerCase().includes(adminSearch.toLowerCase()) || 
+                        log.variant?.toLowerCase().includes(adminSearch.toLowerCase())
+                      );
+                      
+                      return filteredLogs.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-2 py-8">
+                          <WifiOff className="w-8 h-8 opacity-20" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">No logs match search</p>
+                        </div>
+                      ) : (
+                        filteredLogs.map((log, i) => (
+                          <div key={i} className="bg-slate-950 border border-slate-800 p-4 space-y-2">
+                            <div className="flex justify-between items-start">
+                              <span className="bg-blue-900/30 text-blue-400 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-blue-800/50">
+                                {log.eventName}
+                              </span>
+                              <span className="text-slate-600 text-[9px] font-mono">
+                                {new Date(log.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-300 font-bold">{log.email}</div>
+                            {log.user_name && (
+                              <div className="text-[9px] text-slate-400 font-bold">
+                                Customer: {log.user_name}
+                              </div>
+                            )}
+                            {log.variant && (
+                              <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+                                Product: {log.variant}
+                              </div>
+                            )}
+                            {log.country && (
+                              <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+                                Land: {getCountryFlagAndName(log.country, log.country_name)}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      );
+                    })()
                   ) : (
-                    activeLicenses.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-2">
-                        <Users className="w-8 h-8 opacity-20" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">No active licenses</p>
-                      </div>
-                    ) : (
-                      activeLicenses.map((license, i) => (
-                        <div key={i} className="bg-slate-900 border border-slate-800 p-4 rounded-sm flex justify-between items-center">
-                          <div className="space-y-1">
-                            <div className="text-xs text-white font-black">{license.email}</div>
-                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                               Updated: {new Date(license.updatedAt).toLocaleDateString()}
+                    (() => {
+                      const filteredLicenses = activeLicenses.filter(lic => {
+                        if (!adminSearch) return true;
+                        const query = adminSearch.toLowerCase();
+                        return (
+                          lic.email?.toLowerCase().includes(query) || 
+                          lic.status?.toLowerCase().includes(query) || 
+                          lic.variant_name?.toLowerCase().includes(query) || 
+                          (lic.order_id || lic.orderId)?.toString().toLowerCase().includes(query) ||
+                          lic.license_key?.toLowerCase().includes(query) ||
+                          lic.user_name?.toLowerCase().includes(query) ||
+                          lic.country?.toLowerCase().includes(query) ||
+                          lic.country_name?.toLowerCase().includes(query)
+                        );
+                      });
+
+                      return filteredLicenses.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-2 py-8">
+                          <Users className="w-8 h-8 opacity-20" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">No licenses match search</p>
+                        </div>
+                      ) : (
+                        filteredLicenses.map((license, i) => (
+                          <div key={i} className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col gap-3">
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="space-y-1">
+                                <div className="text-xs text-white font-black break-all">{license.email}</div>
+                                {license.user_name && (
+                                  <div className="text-[10px] text-slate-300 font-bold">
+                                    Name: {license.user_name}
+                                  </div>
+                                )}
+                                {license.variant_name && (
+                                  <div className="text-[10px] text-blue-400 font-black uppercase tracking-widest">
+                                    {license.variant_name}
+                                  </div>
+                                )}
+                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-none">
+                                  Updated: {new Date(license.updatedAt).toLocaleDateString()} {new Date(license.updatedAt).toLocaleTimeString()}
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <span className={`text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border ${(['active', 'on_trial', 'subscribed'].includes(license.status)) ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' : 'bg-rose-950/40 text-rose-400 border-rose-800/40'}`}>
+                                  {license.status}
+                                </span>
+                                {license.last_event && (
+                                  <span className="text-[8px] text-slate-600 uppercase tracking-widest font-black">
+                                    {license.last_event.replace(/_/g, ' ')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-900 grid grid-cols-2 sm:grid-cols-4 gap-3 text-[9px]">
+                              <div>
+                                <span className="text-slate-600 font-black uppercase tracking-widest block mb-0.5">Order ID</span>
+                                {license.order_id || license.orderId ? (
+                                  <span className="text-blue-400 font-mono">
+                                    #{license.order_id || license.orderId}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-700 font-mono">N/A</span>
+                                )}
+                              </div>
+                              <div>
+                                <span className="text-slate-600 font-black uppercase tracking-widest block mb-0.5">License Key</span>
+                                {license.license_key ? (
+                                  <div className="text-slate-400 font-mono select-all">
+                                    {license.license_key}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-700 font-mono">N/A</span>
+                                )}
+                              </div>
+                              <div>
+                                <span className="text-slate-600 font-black uppercase tracking-widest block mb-0.5">Land / Country</span>
+                                {license.country ? (
+                                  <span className="text-slate-300 font-bold">
+                                    {getCountryFlagAndName(license.country, license.country_name)}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-700">N/A</span>
+                                )}
+                              </div>
+                              <div>
+                                <span className="text-slate-600 font-black uppercase tracking-widest block mb-0.5">Betalmetod</span>
+                                {license.card_brand ? (
+                                  <span className="text-slate-300 font-bold uppercase">
+                                    {license.card_brand} {license.card_last_four ? `(•••• ${license.card_last_four})` : ''}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-700">N/A</span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <span className={`text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border ${(['active', 'on_trial'].includes(license.status)) ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800/50' : 'bg-rose-900/30 text-rose-400 border-rose-800/50'}`}>
-                              {license.status}
-                            </span>
-                            <span className="text-[9px] text-slate-600 font-mono">#{license.orderId || 'N/A'}</span>
-                          </div>
-                        </div>
-                      ))
-                    )
+                        ))
+                      );
+                    })()
                   )}
                 </div>
               </div>

@@ -23,6 +23,11 @@ service cloud.firestore {
       allow create, list, update, delete: if false; 
     }
 
+    // --- APPTEST IPS ---
+    match /apptest_ips/{ipDocId} {
+      allow read, write: if true;
+    }
+
     // --- LEMON SQUEEZY LICENSES ---
     match /licenses/{email} {
       // Temporary loosening for testing: Allow any signed in user to check any license
@@ -40,26 +45,29 @@ service cloud.firestore {
 
     // --- USER ACCESS ---
     // Users can read their own access state.
-    // They can create it initially with 0 trials.
-    // They can update it ONLY when redeeming a code (this usually needs a more complex logic, 
-    // but we'll enforce schema and ownership here).
+    // They can create it initially with 0 to 3 trials.
+    // They can update it ONLY when redeeming a code or decrementing trials.
     match /user_access/{userId} {
       allow get: if isSignedIn() && request.auth.uid == userId;
       
       allow create: if isSignedIn() 
         && request.auth.uid == userId
         && isValidUserAccess(request.resource.data)
-        && request.resource.data.trialRemaining == 0
+        && request.resource.data.trialRemaining >= 0
+        && request.resource.data.trialRemaining <= 3
         && request.resource.data.isForever == false;
 
-      // Updating access state should ideally happen via a batch verify or similar.
-      // For now, we allow the user to update their own record IF it matches 
-      // the new state verification (Schema-wise).
-      // REAL SECURITY: This should be handled by a client side that verifies against license_codes
+      // Updating access state
       allow update: if isSignedIn() 
         && request.auth.uid == userId
         && isValidUserAccess(request.resource.data)
         && request.resource.data.updatedAt == request.time;
+    }
+
+    // --- USER ACTIVITY ---
+    match /user_activity/{activityId} {
+      allow create: if isSignedIn() && isValidActivity(request.resource.data);
+      allow read, update, delete: if false;
     }
 
     function isValidUserAccess(data) {
@@ -69,6 +77,15 @@ service cloud.firestore {
         && data.trialRemaining is int
         && data.redeemedCodes is list
         && data.updatedAt is timestamp;
+    }
+
+    function isValidActivity(data) {
+      return data.keys().hasAll(['email', 'action', 'details', 'timestamp'])
+        && data.keys().size() == 4
+        && data.email is string
+        && data.action is string
+        && data.details is map
+        && data.timestamp is string;
     }
   }
 }

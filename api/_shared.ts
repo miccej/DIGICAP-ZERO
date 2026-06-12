@@ -213,6 +213,13 @@ export async function processWebhook(req: any, res: any) {
       const status = attributes.status || "active";
       const variant = attributes.variant_name || "Digicap STAT";
 
+      // Robust fallback parsing for country/customer info
+      const userName = attributes.user_name || attributes.customer_name || attributes.name || meta?.custom_data?.name || null;
+      const country = attributes.country || attributes.billing_address?.country || null;
+      const countryName = attributes.country_name || attributes.billing_address?.country_name || null;
+      const cardBrand = attributes.card_brand || attributes.payment_method?.card_brand || null;
+      const cardLastFour = attributes.card_last_four || attributes.payment_method?.card_last_four || null;
+
       // Sync to licenses collection
       await db.collection("licenses").doc(docId).set({
         email: docId,
@@ -222,7 +229,12 @@ export async function processWebhook(req: any, res: any) {
         last_event: eventName,
         order_id: attributes.order_id || null,
         license_key: attributes.license_key || null,
-        customer_id: attributes.customer_id || null
+        customer_id: attributes.customer_id || null,
+        user_name: userName,
+        country: country,
+        country_name: countryName,
+        card_brand: cardBrand,
+        card_last_four: cardLastFour
       }, { merge: true });
 
       // Log to history
@@ -231,7 +243,10 @@ export async function processWebhook(req: any, res: any) {
         email,
         status,
         timestamp: now,
-        variant
+        variant,
+        user_name: userName,
+        country: country,
+        country_name: countryName
       });
 
       console.log(`✅ [WEBHOOK] Successfully processed for ${email}`);
