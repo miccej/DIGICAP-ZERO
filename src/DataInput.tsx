@@ -187,8 +187,8 @@ const DataInput: React.FC<DataInputProps> = ({
     let spread = 0.1;
     if (limits.lsl !== undefined && limits.usl !== undefined) {
       // Default simulation spread should target a 'capable' process at current sigmaLevel
-      // CP = (USL-LSL) / (2 * sigmaLevel * sigma)
-      // If we want CP = 1.33, then sigma = (USL-LSL) / (2 * 1.33 * sigmaLevel)
+      // CP = (UTL-LTL) / (2 * sigmaLevel * sigma)
+      // If we want CP = 1.33, then sigma = (UTL-LTL) / (2 * 1.33 * sigmaLevel)
       spread = (limits.usl - limits.lsl) / (2.66 * sigmaLevel);
     }
 

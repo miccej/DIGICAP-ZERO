@@ -181,44 +181,18 @@ const LandingPage: React.FC<{
 }> = ({ onStart, onDemo, onLogin, onLicenseLogin, themeColor, logoColorClass, language, onLanguageChange, userAccess }) => {
   const t = translations[language];
   return (
-    <div className="h-full w-full bg-[#020617] flex flex-col relative overflow-hidden">
-      {"/* Background with Luster & Depth */"}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0b132b] via-[#060b1b] to-[#020617] pointer-events-none"></div>
+    <div className="h-full w-full bg-[#081427] flex flex-col relative overflow-hidden">
       
       {/* Background subtle pattern */}
       <div className="absolute inset-0 opacity-[0.1] pointer-events-none">
         <div className="absolute top-0 left-0 w-full h-full" style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
       </div>
 
-      {/* LUSTER/GLOW EFFECT BACKGROUND */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.2, 1],
-            opacity: [0.15, 0.3, 0.15],
-          }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-10%] left-[-10%] w-[70%] h-[70%] rounded-full bg-blue-700/15 blur-[100px]"
-        />
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.2, 1],
-            opacity: [0.1, 0.2, 0.1],
-          }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-indigo-700/15 blur-[120px]"
-        />
-      </div>
-      
-      {/* Blue tone at the bottom */}
-      <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-900/10 via-transparent to-transparent pointer-events-none"></div>
-
-      {/* Border Luster - Soft inner glow */}
+      {/* Border Luster - Soft inner border */}
       <div className="absolute inset-0 border border-slate-400/40 pointer-events-none z-50"></div>
-      <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(59,130,246,0.05)] pointer-events-none"></div>
 
       {/* HEADER: LOGO - LOCKED SECTION: DO NOT MODIFY LAYOUT, SPACING OR POSITIONING */}
-      <div className="w-full p-6 z-10 flex flex-col items-center shrink-0 mt-2 md:mt-3 translate-y-[10px]">
+      <div className="w-full p-6 z-10 flex flex-col items-center shrink-0 mt-2 md:mt-3 translate-y-[16px]">
         <div className="inline-flex flex-col items-start">
           <h1 
             className={`relative text-5xl font-black tracking-[0.02em] ${logoColorClass} leading-none flex items-start`}
@@ -325,13 +299,20 @@ const App: React.FC = () => {
   const [theme] = useState<AppTheme>('sharp');
   const t = translations[language];
 
-  type AppColor = 'orange' | 'red' | 'green' | 'blue' | 'violet';
+  type AppColor = 'navy' | 'orange' | 'red' | 'green' | 'blue' | 'violet';
   const [appColor, setAppColor] = useState<AppColor>(() => {
     try {
       const saved = typeof window !== 'undefined' ? localStorage.getItem('digicap_color') : null;
-      return (saved as AppColor) || 'violet';
+      if (!saved || saved === 'violet') {
+        // Automatically migrate users to the beautiful new default navy theme
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('digicap_color', 'navy');
+        }
+        return 'navy';
+      }
+      return (saved as AppColor);
     } catch (e) {
-      return 'violet';
+      return 'navy';
     }
   });
 
@@ -350,6 +331,21 @@ const App: React.FC = () => {
 
 
   const themeColors = {
+    navy: {
+      name: t.colorNavy,
+      primary: 'indigo',
+      logo: 'text-white',
+      newStudy: 'bg-[#081427] hover:bg-[#0c1e3a]',
+      activeTab: 'bg-[#081427] border-[#081427]',
+      border: 'border-[#081427]',
+      text: 'text-white',
+      icon: 'text-white',
+      hex: '#081427',
+      stroke: '#081427',
+      lightBg: 'bg-slate-900',
+      lightBorder: 'border-slate-800/60',
+      darkText: 'text-white'
+    },
     violet: {
       name: t.colorViolet,
       primary: 'violet',
@@ -427,8 +423,8 @@ const App: React.FC = () => {
     }
   };
 
-  const logoTheme = themeColors[appColor] || themeColors.blue;
-  const currentTheme = themeColors.blue;
+  const logoTheme = themeColors[appColor] || themeColors.navy;
+  const currentTheme = themeColors[appColor] || themeColors.navy;
 
   const [showNewStudyConfirm, setShowNewStudyConfirm] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
@@ -447,6 +443,16 @@ const App: React.FC = () => {
 
   const [userAccess, setUserAccess] = useState<UserAccessData | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isFreeUnlocked, setIsFreeUnlocked] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('digicap_free_unlocked') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+  const [showFreeCodeModal, setShowFreeCodeModal] = useState(false);
+  const [freePasswordInput, setFreePasswordInput] = useState('');
+  const [freePasswordError, setFreePasswordError] = useState<string | null>(null);
   const [showChoiceModal, setShowChoiceModal] = useState(false);
   const [showLicenseLogin, setShowLicenseLogin] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
@@ -584,7 +590,7 @@ const App: React.FC = () => {
   const [userActivities, setUserActivities] = useState<any[]>([]);
   const [adminSearch, setAdminSearch] = useState('');
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
-  const [adminTab, setAdminTab] = useState<'logs' | 'licenses' | 'activity'>('licenses');
+  const [adminTab, setAdminTab] = useState<'logs' | 'licenses' | 'activity' | 'logos'>('licenses');
   const [masterMode, setMasterMode] = useState(false);
   const [adminClickCount, setAdminClickCount] = useState(0);
   const [masterModeCount, setMasterModeCount] = useState(0);
@@ -665,6 +671,25 @@ const App: React.FC = () => {
       fetchWebhookLogs();
     }
   }, [isAdminAuthenticated, showAdminPanel]);
+
+  const handleFreeLogin = () => {
+    const trimmedInput = freePasswordInput.trim().toLowerCase();
+    if (trimmedInput === 'qualitas') {
+      setIsFreeUnlocked(true);
+      try {
+        localStorage.setItem('digicap_free_unlocked', 'true');
+      } catch (e) {}
+      setFreePasswordError(null);
+      setFreePasswordInput('');
+      setShowFreeCodeModal(false);
+      setToast({
+        message: language === 'sv' ? "Fritt läge aktiverat! Full tillgång beviljad." : "Free mode activated! Full access granted.",
+        type: 'success'
+      });
+    } else {
+      setFreePasswordError(language === 'sv' ? "Felaktig kod" : "Invalid access code");
+    }
+  };
 
   const handleAdminLogin = async () => {
     const trimmedInput = adminPasswordInput.trim();
@@ -927,12 +952,12 @@ const App: React.FC = () => {
     // Strict enforcement of trial limits on mount
     const hasActiveStudy = !!localStorage.getItem('digicap_study_data') || (recentStudies.length > 0);
     const isFreeTrialActiveAndValid = freeTrialCount > 0 && freeTrialCount <= 3;
-    if (!userAccess?.isForever && (userAccess?.trialRemaining || 0) <= 0 && !hasActiveStudy && !showLanding && !isFreeTrialActiveAndValid) {
+    if (!userAccess?.isForever && !isFreeUnlocked && (userAccess?.trialRemaining || 0) <= 0 && !hasActiveStudy && !showLanding && !isFreeTrialActiveAndValid) {
       // If no trials left and no active study, show ended modal
       // but wait for userAccess to load
       if (userAccess) setShowTrialEndedModal(true);
     }
-  }, [userAccess, recentStudies.length, showLanding]);
+  }, [userAccess, recentStudies.length, showLanding, isFreeUnlocked]);
 
   const handleActivateCode = async () => {
     const code = trialCode.trim().toLowerCase();
@@ -994,11 +1019,11 @@ const App: React.FC = () => {
   };
 
   const colors = {
-    header: 'bg-slate-950',
+    header: 'bg-[#081427]',
     logo: currentTheme.logo,
     newStudy: currentTheme.newStudy,
     activeTab: currentTheme.activeTab,
-    bg: 'bg-slate-950' 
+    bg: 'bg-[#081427]' 
   };
 
   const createDefaultMeasure = useCallback((currentLanguage: Language, index: number): Measure => {
@@ -1203,7 +1228,7 @@ const App: React.FC = () => {
 
   const incrementTrial = useCallback(async () => {
     if (isDemoMode) return true;
-    if (userAccess?.isForever) return true;
+    if (userAccess?.isForever || isFreeUnlocked) return true;
     
     // Check if within 3-test free trial
     const isFreeTrialActiveAndValid = freeTrialCount > 0 && freeTrialCount <= 3;
@@ -1229,7 +1254,7 @@ const App: React.FC = () => {
       lastStudyId: studyInfo.id 
     }));
     return true;
-  }, [userAccess, trialData.lastStudyId, studyInfo.id, isDemoMode]);
+  }, [userAccess, trialData.lastStudyId, studyInfo.id, isDemoMode, isFreeUnlocked]);
 
   const performAnalysis = useCallback(async () => {
     try {
@@ -1548,6 +1573,8 @@ const App: React.FC = () => {
   const handleStartDemo = () => {
     setIsDemoMode(true);
     setShowLanding(false);
+    setAppColor('navy');
+    try { localStorage.setItem('digicap_color', 'navy'); } catch (e) {}
 
     if (!trialData.hasSeenWelcome) {
       setShowWelcomeModal(true);
@@ -1642,7 +1669,7 @@ const App: React.FC = () => {
   }, [activeMeasureId, isDemoMode, measures]);
 
   const handleNewStudy = () => {
-    if (isMasterUser) {
+    if (isMasterUser || isFreeUnlocked) {
       confirmNewStudy();
       return;
     }
@@ -1670,6 +1697,8 @@ const App: React.FC = () => {
     setIsExporting(false);
     setIsDataDirty(false);
     setIsDemoMode(false);
+    setAppColor('navy');
+    try { localStorage.setItem('digicap_color', 'navy'); } catch (e) {}
 
     try {
       const defaultMeasure = createDefaultMeasure(language, 1); 
@@ -1730,7 +1759,7 @@ const App: React.FC = () => {
   return (
     <>
       {/* New Study Choice Modal */}
-      {showChoiceModal && !isMasterUser && (
+      {showChoiceModal && !isMasterUser && !isFreeUnlocked && (
         <div className="fixed inset-0 z-[1200] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-slate-700 max-w-sm w-full p-8 shadow-2xl rounded-2xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-indigo-500"></div>
@@ -1847,6 +1876,56 @@ const App: React.FC = () => {
               <p className="text-[9px] text-slate-500 text-center uppercase tracking-widest font-mono pt-4 leading-relaxed">
                 Works for Apple users and corporate emails
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FREE Code Modal Overlay */}
+      {showFreeCodeModal && (
+        <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl">
+          <div 
+            className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl"
+          >
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-sm font-black text-white uppercase tracking-[0.2em]">FREE Access</h2>
+              <button onClick={() => { setShowFreeCodeModal(false); setFreePasswordInput(''); setFreePasswordError(null); }} className="text-slate-500 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">
+                  {language === 'sv' ? "Ange lösenord" : "Enter password"}
+                </label>
+                <input 
+                  type="password"
+                  value={freePasswordInput}
+                  onChange={(e) => {
+                    setFreePasswordInput(e.target.value);
+                    if (freePasswordError) setFreePasswordError(null);
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleFreeLogin()}
+                  placeholder="••••"
+                  autoFocus
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-center text-lg font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              {freePasswordError && (
+                <p className="text-red-500 text-[10px] font-black uppercase tracking-widest text-center animate-pulse">
+                  {freePasswordError}
+                </p>
+              )}
+
+              <button 
+                onClick={handleFreeLogin}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-xs uppercase tracking-[0.2em] rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Key className="w-4 h-4" />
+                {language === 'sv' ? "Aktivera" : "Activate"}
+              </button>
             </div>
           </div>
         </div>
@@ -2026,7 +2105,7 @@ const App: React.FC = () => {
         <PhoneFrame>
           <LandingPage 
             onStart={() => {
-              if (userAccess?.isForever || isMasterUser) {
+              if (userAccess?.isForever || isMasterUser || isFreeUnlocked) {
                 handleStartApp();
               } else {
                 setShowChoiceModal(true);
@@ -2034,7 +2113,7 @@ const App: React.FC = () => {
             }} 
             onDemo={handleStartDemo}
             onLogin={() => {
-              if (isMasterUser) {
+              if (isMasterUser || isFreeUnlocked) {
                 handleStartApp();
               } else {
                 setShowChoiceModal(true);
@@ -2042,7 +2121,7 @@ const App: React.FC = () => {
             }}
             onLicenseLogin={() => setShowLicenseLogin(true)}
             themeColor={currentTheme} 
-            logoColorClass={logoTheme.text}
+            logoColorClass={logoTheme.logo}
             language={language} 
             onLanguageChange={handleLanguageChange} 
             userAccess={userAccess}
@@ -2120,37 +2199,37 @@ const App: React.FC = () => {
         </header>
 
         <div className="bg-slate-900 border-b-2 border-black shadow-inner">
-          <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-start sm:items-center justify-start py-2 gap-2 sm:gap-4">
-              <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
+          <div className="max-w-6xl mx-auto px-2 sm:px-4 flex flex-col sm:flex-row items-start sm:items-center justify-start py-2 gap-2 sm:gap-4">
+              <div className="flex items-center gap-0.5 sm:gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
                 <button 
                   onClick={handleNewStudy} 
-                  className={`px-2 sm:px-3 py-1.5 ${colors.newStudy} text-white rounded-sm text-[10px] font-mono font-bold uppercase tracking-wider border-2 ${currentTheme.border.replace('text', 'border').replace('500', '600')} shrink-0 hover:opacity-90 transition-all active:scale-95 whitespace-nowrap flex items-center gap-1.5`}
+                  className={`px-1 sm:px-3 py-1 sm:py-1.5 ${colors.newStudy} text-white rounded-sm text-[8.5px] sm:text-[10px] font-mono font-bold uppercase tracking-wider border sm:border-2 ${currentTheme.border.replace('text', 'border').replace('500', '600')} shrink-0 hover:opacity-90 transition-all active:scale-95 whitespace-nowrap flex items-center gap-1 sm:gap-1.5`}
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   {t.newStudy}
                 </button>
 
                 {recentStudies.length > 0 && (
                   <button 
                     onClick={() => setShowResumeModal(true)} 
-                    className={`px-2 sm:px-3 py-1.5 ${colors.newStudy} text-white rounded-sm text-[10px] font-mono font-bold uppercase tracking-wider border-2 ${currentTheme.border.replace('text', 'border').replace('500', '600')} shrink-0 hover:opacity-90 transition-all active:scale-95 whitespace-nowrap flex items-center gap-1.5`}
+                    className={`px-1 sm:px-3 py-1 sm:py-1.5 ${colors.newStudy} text-white rounded-sm text-[8.5px] sm:text-[10px] font-mono font-bold uppercase tracking-wider border sm:border-2 ${currentTheme.border.replace('text', 'border').replace('500', '600')} shrink-0 hover:opacity-90 transition-all active:scale-95 whitespace-nowrap flex items-center gap-1 sm:gap-1.5`}
                   >
-                    <RefreshCw className="w-3 h-3" />
+                    <RefreshCw className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     {t.restore}
                   </button>
                 )}
 
                 <button 
                   onClick={handleAddMeasure} 
-                  className={`px-2 sm:px-3 py-1.5 ${colors.newStudy} text-white rounded-sm text-[10px] font-mono font-bold uppercase tracking-wider border-2 ${currentTheme.border.replace('text', 'border').replace('500', '600')} shrink-0 hover:opacity-90 transition-all active:scale-95 whitespace-nowrap`}
+                  className={`px-1 sm:px-3 py-1 sm:py-1.5 ${colors.newStudy} text-white rounded-sm text-[8.5px] sm:text-[10px] font-mono font-bold uppercase tracking-wider border sm:border-2 ${currentTheme.border.replace('text', 'border').replace('500', '600')} shrink-0 hover:opacity-90 transition-all active:scale-95 whitespace-nowrap`}
                 >
                   {t.addMeasure}
                 </button>
                 <button 
                   onClick={() => { setOverlayMeasureIds(compatibleMeasures.map(m => m.id)); setShowOverlayModal(true); }} 
-                  className={`px-2 sm:px-3 py-1.5 ${colors.newStudy} text-white rounded-sm text-[10px] font-mono font-bold uppercase tracking-wider border-2 ${currentTheme.border.replace('text', 'border').replace('500', '600')} flex items-center gap-1 shrink-0 hover:opacity-90 transition-all active:scale-95 whitespace-nowrap`}
+                  className={`px-1 sm:px-3 py-1 sm:py-1.5 ${colors.newStudy} text-white rounded-sm text-[8.5px] sm:text-[10px] font-mono font-bold uppercase tracking-wider border sm:border-2 ${currentTheme.border.replace('text', 'border').replace('500', '600')} flex items-center gap-0.5 sm:gap-1 shrink-0 hover:opacity-90 transition-all active:scale-95 whitespace-nowrap`}
                 >
-                  <Layers className="w-3 h-3" /> {t.overlayBtn}
+                  <Layers className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {t.overlayBtn}
                 </button>
               </div>
               <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar justify-start w-full sm:w-auto">
@@ -2326,7 +2405,6 @@ const App: React.FC = () => {
                             >
                                 <option value="IATF">{t.standardIATF}</option>
                                 <option value="VDA">{t.standardVDA}</option>
-                                <option value="SEMI">{t.standardSEMI}</option>
                             </select>
                             {standardHelpText && (
                                 <div className={`mt-3 p-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300' : currentTheme.lightBg + ' ' + currentTheme.lightBorder + ' ' + currentTheme.darkText} border-2 text-[12px] leading-relaxed animate-in fade-in slide-in-from-top-1`}>
@@ -2339,7 +2417,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="pt-6 border-t-2 border-slate-200">
                         <label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-3 block flex items-center gap-1"><Palette className="w-4 h-4" /> {t.themeTitle}</label>
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                           {(Object.keys(themeColors) as AppColor[]).map((color) => (
                             <button 
                               key={color} 
@@ -2395,6 +2473,56 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       )}
+
+                      {/* Developer Console Logo v2.0 Live Preview in Settings */}
+                      <div className="pt-6 border-t-2 border-slate-700/60">
+                        <label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-2 block flex items-center gap-1.5">
+                          <span>Console Logo v2.0</span>
+                          <span className="text-[8px] bg-violet-600 text-white font-extrabold px-1.5 py-0.5 rounded-full tracking-wider">DEV</span>
+                        </label>
+                        <p className="text-[10px] text-slate-400 font-bold leading-normal mb-3 uppercase tracking-wide">
+                          {language === 'sv' 
+                            ? 'Mörkblå bakgrund med supervit text för nästa version.' 
+                            : 'Deep navy-blue background with pure white typography for the next release.'}
+                        </p>
+                        
+                        <a 
+                          href="/digicap_console_logo.svg?v=2" 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="block relative aspect-square bg-slate-950 border-2 border-slate-800 rounded-lg overflow-hidden group hover:border-violet-500 transition-all cursor-pointer p-4 shadow-inner"
+                        >
+                          <img 
+                            src={`/digicap_console_logo.svg?v=${studyKey}`} 
+                            alt="DigiCap Console Logo v2.0" 
+                            className="w-full h-full object-contain pointer-events-none group-hover:scale-[1.03] transition-transform duration-300" 
+                          />
+                          <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
+                            <span className="bg-slate-900 border border-slate-700 text-white font-black uppercase text-[10px] tracking-widest px-3 py-1.5 shadow-xl rounded-sm">
+                              {language === 'sv' ? 'Öppna SVG (512x512)' : 'Open SVG (512x512)'}
+                            </span>
+                          </div>
+                        </a>
+                        
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <a 
+                            href="/digicap_console_logo.png?v=2" 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="text-center py-2 bg-slate-800 hover:bg-slate-700 text-[9px] font-black text-slate-300 border border-slate-700/60 transition-colors uppercase tracking-widest rounded-sm"
+                          >
+                            Öppna PNG
+                          </a>
+                          <a 
+                            href="/digicap_console_logo.jpg?v=2" 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="text-center py-2 bg-slate-800 hover:bg-slate-700 text-[9px] font-black text-slate-300 border border-slate-700/60 transition-colors uppercase tracking-widest rounded-sm"
+                          >
+                            Öppna JPG
+                          </a>
+                        </div>
+                      </div>
                   </div>
                   <div className={`p-6 border-t-2 ${themeMode === 'dark' ? 'border-slate-700 bg-slate-800' : 'border-slate-300 bg-slate-200'}`}><button onClick={() => setShowSettings(false)} className={`w-full py-3.5 ${themeMode === 'dark' ? 'bg-white text-black' : 'bg-black text-white'} font-bold text-sm uppercase tracking-wider transition-colors`}>{t.close}</button></div>
               </div>
@@ -2500,7 +2628,7 @@ const App: React.FC = () => {
                         <label className="text-[10px] font-black uppercase tracking-[0.20em] text-slate-400 block">
                           {language === 'sv' ? 'VÄLJ FÄRGTEMA (LOGOTYP)' : 'CHOOSE COLOR THEME (LOGO)'}
                         </label>
-                        <div className="grid grid-cols-5 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                           {Object.entries(themeColors).map(([key, col]: [string, any]) => (
                             <button
                               key={key}
@@ -2531,6 +2659,15 @@ const App: React.FC = () => {
                           className={`w-full py-3 ${themeMode === 'dark' ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'} text-[8px] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2`}
                         >
                           <ShieldCheck className="w-3 h-3" /> {t.adminArea}
+                        </button>
+                      </div>
+
+                      <div className="pt-1">
+                        <button 
+                          onClick={() => { setShowFreeCodeModal(true); setShowAbout(false); }} 
+                          className={`w-full py-3 ${themeMode === 'dark' ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'} text-[8px] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2`}
+                        >
+                          <Key className="w-3 h-3" /> FREE
                         </button>
                       </div>
                   </div>
@@ -2747,6 +2884,12 @@ const App: React.FC = () => {
                     >
                       User Activity ({userActivities.length})
                     </button>
+                    <button 
+                      onClick={() => setAdminTab('logos')}
+                      className={`text-[10px] font-black uppercase tracking-widest ${adminTab === 'logos' ? 'text-blue-500' : 'text-slate-500'}`}
+                    >
+                      Logotyper
+                    </button>
                   </div>
                   <button onClick={fetchWebhookLogs} disabled={isLoadingLogs} className="text-blue-500 hover:text-blue-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
                     <RefreshCw className={`w-3 h-3 ${isLoadingLogs ? 'animate-spin' : ''}`} /> Refresh
@@ -2861,6 +3004,83 @@ const App: React.FC = () => {
                         ))
                       );
                     })()
+                  ) : adminTab === 'logos' ? (
+                    <div className="space-y-6 py-2">
+                      <div className="bg-slate-900 border border-slate-800 p-5 rounded-sm space-y-2">
+                        <h4 className="text-white font-black text-xs uppercase tracking-widest">Hämta digitala logotyper</h4>
+                        <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider leading-relaxed">
+                          Här hittar du de färdigbehandlade logotyperna i vitt utförande med elegant marinblå bakgrund, redo att sparas, bäddas in eller skickas för externa granskningar.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* SVG Vektor */}
+                        <div className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col justify-between gap-4">
+                          <div className="space-y-2">
+                            <span className="bg-blue-950/40 text-blue-400 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-blue-800/40 inline-block">
+                              SVG format
+                            </span>
+                            <div className="text-xs text-white font-black">digicap_console_logo.svg</div>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Vektor-format. Bäst för framtida tryck eller obegränsad skalning.</p>
+                            
+                            <div className="border border-slate-800 bg-[#081427] aspect-square w-full rounded flex items-center justify-center p-4">
+                              <img src="/digicap_console_logo.svg?v=2" alt="DigiCap SVG" className="max-h-36 object-contain" referrerPolicy="no-referrer" />
+                            </div>
+                          </div>
+                          <a 
+                            href="/digicap_console_logo.svg" 
+                            download="digicap_console_logo.svg" 
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-black text-center text-[10px] uppercase tracking-widest py-3 rounded-sm transition-all focus:outline-none"
+                          >
+                            Ladda ner SVG
+                          </a>
+                        </div>
+
+                        {/* PNG Högupplöst */}
+                        <div className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col justify-between gap-4">
+                          <div className="space-y-2">
+                            <span className="bg-emerald-950/40 text-emerald-400 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-emerald-800/40 inline-block">
+                              PNG format
+                            </span>
+                            <div className="text-xs text-white font-black">digicap_console_logo.png</div>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Högupplöst 512x512 bild. Bra för dokumentationer & webb.</p>
+                            
+                            <div className="border border-slate-800 bg-[#081427] aspect-square w-full rounded flex items-center justify-center p-4">
+                              <img src="/digicap_console_logo.png?v=2" alt="DigiCap PNG" className="max-h-36 object-contain" referrerPolicy="no-referrer" />
+                            </div>
+                          </div>
+                          <a 
+                            href="/digicap_console_logo.png" 
+                            download="digicap_console_logo.png" 
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-center text-[10px] uppercase tracking-widest py-3 rounded-sm transition-all focus:outline-none"
+                          >
+                            Ladda ner PNG
+                          </a>
+                        </div>
+
+                        {/* JPEG Standard */}
+                        <div className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col justify-between gap-4">
+                          <div className="space-y-2">
+                            <span className="bg-amber-950/40 text-amber-500 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-amber-800/40 inline-block">
+                              JPG format
+                            </span>
+                            <div className="text-xs text-white font-black">digicap_console_logo.jpg</div>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Standard JPEG-fil 512x512 bild. Bäst för maximal kompatibilitet.</p>
+                            
+                            <div className="border border-slate-800 bg-[#081427] aspect-square w-full rounded flex items-center justify-center p-4">
+                              <img src="/digicap_console_logo.jpg?v=2" alt="DigiCap JPG" className="max-h-36 object-contain" referrerPolicy="no-referrer" />
+                            </div>
+                          </div>
+                          <a 
+                            href="/digicap_console_logo.jpg" 
+                            download="digicap_console_logo.jpg" 
+                            className="bg-amber-600 hover:bg-amber-700 text-black font-black text-center text-[10px] uppercase tracking-widest py-3 rounded-sm transition-all focus:outline-none"
+                          >
+                            Ladda ner JPG
+                          </a>
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     (() => {
                       const filteredLicenses = activeLicenses.filter(lic => {

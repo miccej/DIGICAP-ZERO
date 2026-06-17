@@ -119,11 +119,10 @@ const FatBar = (props: any) => {
   );
 };
 
-const CapabilityReport: React.FC<CapabilityReportProps> = ({ 
+const CapabilityReportInner: React.FC<CapabilityReportProps> = ({ 
   stats, limits, histogramData, studyInfo, language, distribution, overlayMeasures,
   rawData, calculationMethod, subgroupSize, theme, themeColor, themeMode = 'light', isPdfExporting
 }) => {
-  if (!stats) return null;
   const t = translations[language];
   const isOverlay = !!overlayMeasures && overlayMeasures.length > 0;
   const colors = ['#f59e0b', '#6366f1', '#ec4899', '#10b981', '#ef4444', '#06b6d4'];
@@ -395,14 +394,32 @@ const CapabilityReport: React.FC<CapabilityReportProps> = ({
           </div>
         </div>
         
-        <div style={{ width: '100%', display: 'flex', flexWrap: 'nowrap' }}>
+        <div 
+          className="flex flex-wrap sm:flex-nowrap gap-y-2"
+          style={{ 
+            width: '100%', 
+            display: 'flex', 
+            flexWrap: isPdfExporting ? 'nowrap' : undefined 
+          }}
+        >
             {[
               { l: t.partNo, v: studyInfo.partNumber, icon: <Zap style={{ width: '12px', height: '12px' }} /> },
               { l: t.machineNo, v: studyInfo.machineNumber, icon: <TargetIcon style={{ width: '12px', height: '12px' }} /> },
               { l: t.performedBy + ' /' + t.sign, v: studyInfo.performedBy, icon: <ShieldCheck style={{ width: '12px', height: '12px' }} /> },
               { l: t.revision, v: studyInfo.revision, icon: <Calendar style={{ width: '12px', height: '12px' }} /> }
             ].map((item, i) => (
-              <div key={i} style={{ display: 'inline-block', width: '24%', borderLeft: `1px solid #e2e8f0`, paddingLeft: '10px', boxSizing: 'border-box', verticalAlign: 'top' }}>
+              <div 
+                key={i} 
+                className="w-[48%] sm:w-[24%]"
+                style={{ 
+                  display: 'inline-block', 
+                  width: isPdfExporting ? '24%' : undefined, 
+                  borderLeft: `1px solid #e2e8f0`, 
+                  paddingLeft: '10px', 
+                  boxSizing: 'border-box', 
+                  verticalAlign: 'top' 
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '5px' }}>
                   <span style={{ color: '#000000' }}>{item.icon}</span>
                   <span style={{ fontSize: '9px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{item.l}</span>
@@ -437,14 +454,7 @@ const CapabilityReport: React.FC<CapabilityReportProps> = ({
               />
               <YAxis hide yAxisId={0} />
               
-              {!isOverlay && (
-                <>
-                  <Area type="monotone" dataKey="curveNormal" stroke="#94a3b8" strokeWidth={1} fill="#94a3b8" fillOpacity={0.03} dot={false} isAnimationActive={false} connectNulls />
-                  <Area type="monotone" dataKey="curveLogNormal" stroke="#6366f1" strokeWidth={1} fill="#6366f1" fillOpacity={0.03} dot={false} isAnimationActive={false} connectNulls />
-                  <Area type="monotone" dataKey="curveWeibull" stroke="#ec4899" strokeWidth={1} fill="#ec4899" fillOpacity={0.03} dot={false} isAnimationActive={false} connectNulls />
-                  <Area type="monotone" dataKey="curveRayleigh" stroke="#10b981" strokeWidth={1} fill="#10b981" fillOpacity={0.03} dot={false} isAnimationActive={false} connectNulls />
-                </>
-              )}
+              {/* Only rendering the actual selected distribution curve to avoid visual confusion with other reference models */}
 
               {!isOverlay && (
                 <Bar 
@@ -764,7 +774,6 @@ const CapabilityReport: React.FC<CapabilityReportProps> = ({
           <p style={{ fontSize: '8px', color: isPdfExporting ? '#475569' : '#94a3b8', lineHeight: '1.4', margin: 0 }}>
             {limits.standard === 'IATF' && t.methodologyIATF}
             {limits.standard === 'VDA' && t.methodologyVDA}
-            {limits.standard === 'SEMI' && t.methodologySEMI}
             {t.methodologyVerified + (t[`dist${distribution}` as keyof typeof t] || distribution) + "."}
             {isWithin && (
               <span style={{ display: 'block', fontWeight: 'bold', color: '#000000', marginTop: '2px' }}>
@@ -791,6 +800,11 @@ const CapabilityReport: React.FC<CapabilityReportProps> = ({
       {isPdfExporting && <div style={{ height: '20px' }} />}
     </div>
   );
+};
+
+const CapabilityReport: React.FC<CapabilityReportProps> = (props) => {
+  if (!props.stats) return null;
+  return <CapabilityReportInner {...props} />;
 };
 
 export default CapabilityReport;

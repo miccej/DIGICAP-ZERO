@@ -124,6 +124,11 @@ export const decrementTrial = async (userId: string): Promise<UserAccessData | n
 
 export const logUserActivity = async (email: string, action: string, details?: any) => {
   if (!email) return;
+  // Guard: Only write telemetry to Cloud Firestore if the client has loaded/finished authentication
+  if (!auth.currentUser) {
+    console.log("[TELEMETRY] local cache / offline mode - skipping cloud write for:", action);
+    return;
+  }
   try {
     const sanitizedEmail = email.toLowerCase().trim();
     const cleanAction = action.replace(/[\/\s]/g, '_');

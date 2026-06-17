@@ -32,13 +32,6 @@ const PhoneFrame: React.FC<PhoneFrameProps> = ({ children, onClose, showClose = 
         {/* Outer Frame (Bezel) - Slimmer and more lustrous with depth */}
         <div className="relative border-[8px] border-[#5c5c64] rounded-[42px] md:rounded-[56px] w-[100vw] h-[100vh] md:w-[380px] md:h-[820px] bg-black overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.85),inset_0_0_4px_rgba(255,255,255,0.7)]">
             
-            {/* Lustre/Glow Highlight Layer - Radial gradient on the bezel */}
-            <div className="absolute inset-0 rounded-[34px] md:rounded-[48px] pointer-events-none z-50 overflow-hidden">
-                <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.2)_0%,transparent_50%)]"></div>
-                <div className="absolute top-0 left-0 w-full h-[1.5px] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-            </div>
-
             {/* Inner Border highlighting the screen edge - slightly refined */}
             <div className="absolute inset-0 border-[2px] border-slate-800 rounded-[34px] md:rounded-[48px] pointer-events-none z-40 shadow-[inset_0_0_12px_rgba(0,0,0,0.6)]"></div>
 

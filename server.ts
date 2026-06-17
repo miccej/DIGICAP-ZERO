@@ -100,17 +100,31 @@ app.post("/api/verify-license", async (req, res) => {
 });
 
 // 4. FRONTEND SERVING (Dynamic)
+import fs from "fs";
 
 async function startFrontend() {
+  const distPath = path.join(process.cwd(), "dist");
+
   if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+    try {
+      console.log("🔌 Attempting to load Vite dev middleware...");
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+      console.log("🚀 Vite dev server middleware mounted successfully.");
+    } catch (err: any) {
+      console.warn("⚠️ Failed to load Vite development middleware, falling back to static serving:", err.message);
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        if (req.url.startsWith("/api/")) return res.status(404).json({ error: "API route not found" });
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    console.log("📦 Serving built frontend from /dist (Production Mode)");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       if (req.url.startsWith("/api/")) return res.status(404).json({ error: "API route not found" });
