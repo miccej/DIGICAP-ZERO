@@ -515,13 +515,21 @@ const App: React.FC = () => {
       // Check for locally saved license link (Corporate/Apple users)
       const savedLicenseEmail = localStorage.getItem('digicap_active_license');
       if (savedLicenseEmail && !userAccess) {
-        // If we have a saved license, grant access for this session
-        setUserAccess({
-          isForever: true,
-          trialRemaining: 999,
-          redeemedCodes: [],
-          updatedAt: new Date().toISOString()
-        });
+        // Secure check: Verify the license email against Firestore before granting access
+        const isValid = await checkLicenseByEmail(savedLicenseEmail);
+        if (isValid) {
+          setUserAccess({
+            isForever: true,
+            trialRemaining: 999,
+            redeemedCodes: [],
+            updatedAt: new Date().toISOString()
+          });
+        } else {
+          console.warn("[SECURITY] Saved license email is invalid, removing from storage:", savedLicenseEmail);
+          try {
+            localStorage.removeItem('digicap_active_license');
+          } catch (e) {}
+        }
       }
     };
     initAuth();
@@ -859,6 +867,7 @@ const App: React.FC = () => {
 
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [showOverlayModal, setShowOverlayModal] = useState(false);
   const [showLicenseModal, setShowLicenseModal] = useState(false);
   
@@ -1102,14 +1111,22 @@ const App: React.FC = () => {
   }, []);
 
   const handleAddMeasure = useCallback(() => {
+      if (isDemoMode && !isMasterUser) {
+        setShowChoiceModal(true);
+        return;
+      }
       if (measures.length >= APP_LIMITS.MAX_MEASURES) { alert(t.maxMeasures); return; }
       const newMeasure = createDefaultMeasure(language, measures.length + 1);
       setMeasures(prev => [...prev, newMeasure]);
       setActiveMeasureId(newMeasure.id);
       setShowOverlayReport(false);
-  }, [createDefaultMeasure, language, t.maxMeasures, measures.length]);
+  }, [isDemoMode, isMasterUser, createDefaultMeasure, language, t.maxMeasures, measures.length]);
 
   const handleDeleteMeasure = useCallback(() => {
+      if (isDemoMode && !isMasterUser) {
+        setShowChoiceModal(true);
+        return;
+      }
       if (measures.length <= 1) return;
       if (!confirm(t.deleteMeasureConfirm)) return;
       
@@ -1117,7 +1134,7 @@ const App: React.FC = () => {
       setMeasures(newMeasures);
       setActiveMeasureId(newMeasures[0].id);
       setShowOverlayReport(false);
-  }, [activeMeasureId, t.deleteMeasureConfirm, measures]);
+  }, [isDemoMode, isMasterUser, activeMeasureId, t.deleteMeasureConfirm, measures]);
 
   const updateActiveMeasure = useCallback((updates: Partial<Measure>) => {
       setMeasures(prev => prev.map(m => m.id === activeMeasureId ? { 
@@ -1677,7 +1694,7 @@ const App: React.FC = () => {
     // Check if free trial limits are exceeded and block new study creation
     if (freeTrialCount >= 3 && !userAccess?.isForever) {
       setShowNewStudyConfirm(false);
-      setShowChoiceModal(true); // Exposes ChoiceModal where Testa Gratis is disabled, forcing Buy/Login
+      setShowTrialEndedModal(true); // Shows the beautiful "Trial Ended" modal with the prominent Buy button!
       setToast({ message: "Dina 3 gratistester är slut! Köp licens för att göra fler studier.", type: 'error' });
       return;
     }
@@ -2107,6 +2124,8 @@ const App: React.FC = () => {
             onStart={() => {
               if (userAccess?.isForever || isMasterUser || isFreeUnlocked) {
                 handleStartApp();
+              } else if (freeTrialCount >= 3) {
+                setShowTrialEndedModal(true);
               } else {
                 setShowChoiceModal(true);
               }
@@ -2614,6 +2633,12 @@ const App: React.FC = () => {
                               <button onClick={() => setShowTerms(true)} className={`px-2 py-3 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'} border-2 text-[10px] font-black uppercase tracking-widest transition-all`}>{t.termsTitle}</button>
                               <button onClick={() => setShowPrivacy(true)} className={`px-2 py-3 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'} border-2 text-[10px] font-black uppercase tracking-widest transition-all`}>{t.privacyTitle}</button>
                               <button 
+                                onClick={() => setShowChangelog(true)} 
+                                className={`col-span-2 px-2 py-3 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'} border-2 text-[10px] font-black uppercase tracking-widest transition-all`}
+                              >
+                                {language === 'sv' ? 'CHANGELOG / VERSION HISTORY' : 'CHANGELOG / VERSION HISTORY'}
+                              </button>
+                              <button 
                                 onClick={() => { setShowFormulaDocument(true); }} 
                                 className={`col-span-2 px-2 py-3 ${themeMode === 'dark' ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-500 hover:bg-emerald-900/30' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'} border-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2`}
                               >
@@ -2777,16 +2802,71 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {(showTerms || showPrivacy) && (
-          <div className="fixed inset-0 z-[2000] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 shadow-[0_0_100px_rgba(0,0,0,0.8)]" onClick={() => { setShowTerms(false); setShowPrivacy(false); }}>
+      {(showTerms || showPrivacy || showChangelog) && (
+          <div className="fixed inset-0 z-[2000] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 shadow-[0_0_100px_rgba(0,0,0,0.8)]" onClick={() => { setShowTerms(false); setShowPrivacy(false); setShowChangelog(false); }}>
               <div className={`${themeMode === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-black'} border-4 max-w-lg w-full shadow-2xl flex flex-col max-h-[90vh] text-left`} onClick={(e) => e.stopPropagation()}>
-                  <div className={`px-5 py-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-300'} border-b-2 flex justify-between items-center shrink-0`}><h3 className={`font-bold text-sm uppercase tracking-widest ${themeMode === 'dark' ? 'text-slate-100' : 'text-black'}`}>{showTerms ? t.termsTitle : t.privacyTitle}</h3><button onClick={() => { setShowTerms(false); setShowPrivacy(false); }}><X className="w-6 h-6 text-slate-500" /></button></div>
-                  <div className={`p-8 overflow-y-auto text-sm leading-relaxed prose max-w-none ${themeMode === 'dark' ? 'prose-invert' : 'prose-slate'}`}>
-                    <div className="space-y-6">
-                        <ReactMarkdown>{showTerms ? t.termsFull : t.privacyFull}</ReactMarkdown>
-                    </div>
+                  <div className={`px-5 py-4 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-300'} border-b-2 flex justify-between items-center shrink-0`}>
+                    <h3 className={`font-bold text-sm uppercase tracking-widest ${themeMode === 'dark' ? 'text-slate-100' : 'text-black'}`}>
+                      {showTerms ? t.termsTitle : showPrivacy ? t.privacyTitle : (language === 'sv' ? 'Versionshistorik' : 'Changelog')}
+                    </h3>
+                    <button onClick={() => { setShowTerms(false); setShowPrivacy(false); setShowChangelog(false); }}><X className="w-6 h-6 text-slate-500" /></button>
                   </div>
-                  <div className={`p-6 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} border-t-2 shrink-0`}><button onClick={() => { setShowTerms(false); setShowPrivacy(false); }} className={`w-full py-3 ${themeMode === 'dark' ? 'bg-white text-black' : 'bg-black text-white'} font-black text-[12px] uppercase tracking-widest`}>{t.okBtn}</button></div>
+                  <div className={`p-8 overflow-y-auto text-sm leading-relaxed ${themeMode === 'dark' ? 'text-slate-300' : 'text-slate-800'}`}>
+                    {showChangelog ? (
+                      <div className="space-y-4">
+                        <h4 className={`font-black text-xs uppercase tracking-widest flex items-center gap-2 ${themeMode === 'dark' ? 'text-white' : 'text-black'}`}>
+                          <span>ℹ️</span> {language === 'sv' ? 'DIGICAP® SYSTEMÄNDRINGSLOGG' : 'DIGICAP® SYSTEM CHANGELOG'}
+                        </h4>
+                        
+                        <div className="flex flex-col gap-5 leading-relaxed text-[11px] font-bold">
+                          <div className={`border-b ${themeMode === 'dark' ? 'border-slate-850' : 'border-slate-200'} pb-3`}>
+                            <strong className={`${themeMode === 'dark' ? 'text-white' : 'text-black'} block text-xs`}>v1.5.0 (Aktuell version)</strong>
+                            <ul className="list-disc pl-5 mt-1 space-y-1 opacity-80 font-medium">
+                              <li>Möjlighet till rapportkommentar/fritext som inkluderas i PDF-exporten.</li>
+                              <li>Processutvärdering med I-MR Nelson-regler (stabilitet) och varningar om instabil process.</li>
+                              <li>Normalfördelningskontroll med numerisk skevhet och kurtosis samt handlingsrekommendationer.</li>
+                              <li>Säkerställd verifiering och versionshistorik i rapportfooter.</li>
+                            </ul>
+                          </div>
+                          <div className={`border-b ${themeMode === 'dark' ? 'border-slate-850' : 'border-slate-200'} pb-3`}>
+                            <strong className={`${themeMode === 'dark' ? 'text-white' : 'text-black'} block text-xs`}>v1.4.0</strong>
+                            <ul className="list-disc pl-5 mt-1 space-y-1 opacity-80 font-medium">
+                              <li>Layout-justeringar för A4-utskrift och PDF-marginaler.</li>
+                              <li>Stöd för varumärkesregistrering (®) och varumärkesgrafik i hög upplösning.</li>
+                            </ul>
+                          </div>
+                          <div className={`border-b ${themeMode === 'dark' ? 'border-slate-850' : 'border-slate-200'} pb-3`}>
+                            <strong className={`${themeMode === 'dark' ? 'text-white' : 'text-black'} block text-xs`}>v1.3.0</strong>
+                            <ul className="list-disc pl-5 mt-1 space-y-1 opacity-80 font-medium">
+                              <li>Flerspråkigt gränssnitt (svenska, engelska m.fl.) med dynamisk växling.</li>
+                              <li>Interaktiv processguide för duglighetsindex och prestandaindex.</li>
+                            </ul>
+                          </div>
+                          <div className={`border-b ${themeMode === 'dark' ? 'border-slate-850' : 'border-slate-200'} pb-3`}>
+                            <strong className={`${themeMode === 'dark' ? 'text-white' : 'text-black'} block text-xs`}>v1.2.0</strong>
+                            <ul className="list-disc pl-5 mt-1 space-y-1 opacity-80 font-medium">
+                              <li>Integration med Firebase Firestore för molnbaserade Pro-licenser och orderkopplingar.</li>
+                              <li>Säkerställd telemetri och serverloggning av statistiska analyser.</li>
+                            </ul>
+                          </div>
+                          <div className={`border-b ${themeMode === 'dark' ? 'border-slate-850' : 'border-slate-200'} pb-3`}>
+                            <strong className={`${themeMode === 'dark' ? 'text-white' : 'text-black'} block text-xs`}>v1.1.0</strong>
+                            <ul className="list-disc pl-5 mt-1 space-y-1 opacity-80 font-medium">
+                              <li>Stöd för icke-normalfördelade parametriska modeller (Weibull, LogNormal, m.fl.) via ISO 22514-2.</li>
+                            </ul>
+                          </div>
+                          <div className={`pt-3 text-center text-[10px] opacity-60`}>
+                            Utvecklad och validerad i samarbete med MI Qvalitetsutbildningar AB.
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6 prose max-w-none">
+                        <ReactMarkdown>{showTerms ? t.termsFull : t.privacyFull}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                  <div className={`p-6 ${themeMode === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} border-t-2 shrink-0`}><button onClick={() => { setShowTerms(false); setShowPrivacy(false); setShowChangelog(false); }} className={`w-full py-3 ${themeMode === 'dark' ? 'bg-white text-black' : 'bg-black text-white'} font-black text-[12px] uppercase tracking-widest`}>{t.okBtn}</button></div>
               </div>
           </div>
       )}

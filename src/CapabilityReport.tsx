@@ -130,6 +130,133 @@ const CapabilityReportInner: React.FC<CapabilityReportProps> = ({
   
   const isWithin = calculationMethod === 'within';
 
+  // Load and save comment based on study and limits to ensure uniqueness
+  const storageKey = useMemo(() => {
+    return `digicap_comment_${studyInfo.partNumber || ''}_${limits.lsl || ''}_${limits.usl || ''}`;
+  }, [studyInfo.partNumber, limits.lsl, limits.usl]);
+
+  const [comment, setComment] = useState('');
+
+  useEffect(() => {
+    const saved = localStorage.getItem(storageKey);
+    setComment(saved || '');
+  }, [storageKey]);
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setComment(val);
+    localStorage.setItem(storageKey, val);
+  };
+
+  // Stability Check using I-MR Nelson Rules on rawData
+  const stabilityCheck = useMemo(() => {
+    if (!rawData || rawData.length < 2) return { isStable: true, violations: [] as string[], ucl: 0, lcl: 0 };
+    const values = rawData.map(d => d.value);
+    const n = values.length;
+    const violations: string[] = [];
+    
+    // Choose appropriate sigma (sigmaWithin for Process, stdDev for others)
+    const activeSigma = isWithin || studyInfo.studyType === 'Process' ? stats.sigmaWithin : stats.stdDev;
+    
+    if (activeSigma === 0) return { isStable: true, violations: [] as string[], ucl: stats.mean, lcl: stats.mean };
+
+    // UCL and LCL of Individual Control Chart
+    const ucl = stats.mean + 3 * activeSigma;
+    const lcl = stats.mean - 3 * activeSigma;
+
+    // Rule 1: Point outside 3-sigma limits
+    const outOfSpecIndex: number[] = [];
+    values.forEach((v, idx) => {
+      if (v > ucl || v < lcl) {
+        outOfSpecIndex.push(idx + 1);
+      }
+    });
+    if (outOfSpecIndex.length > 0) {
+      violations.push(language === 'sv'
+        ? `${outOfSpecIndex.length} st mätvärde(n) utanför 3-sigma styrgränser [${lcl.toFixed(4)} - ${ucl.toFixed(4)}]: Prov nr ${outOfSpecIndex.join(', ')}`
+        : `${outOfSpecIndex.length} measurement(s) outside 3-sigma control limits [${lcl.toFixed(4)} - ${ucl.toFixed(4)}]: Sample #${outOfSpecIndex.join(', ')}`
+      );
+    }
+
+    // Rule 2: 9 or more consecutive points on the same side of the mean
+    let sameSideCount = 0;
+    let prevSide = 0; // -1, 1, 0
+    const rule2Indices: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const currentSide = values[i] > stats.mean ? 1 : values[i] < stats.mean ? -1 : 0;
+      if (currentSide === 0) {
+        sameSideCount = 0;
+        prevSide = 0;
+      } else if (currentSide === prevSide) {
+        sameSideCount++;
+        if (sameSideCount >= 9) {
+          rule2Indices.push(i + 1);
+        }
+      } else {
+        sameSideCount = 1;
+        prevSide = currentSide;
+      }
+    }
+    if (rule2Indices.length > 0) {
+      violations.push(language === 'sv'
+        ? `9 eller fler mätvärden i följd på samma sida om medelvärdet (förskjutning i processläge). Prov nr ${rule2Indices.join(', ')}`
+        : `9 or more consecutive points on the same side of the mean (shift in process level). Sample #${rule2Indices.join(', ')}`
+      );
+    }
+
+    // Rule 3: 6 consecutive points steadily increasing or decreasing
+    let trendCount = 1;
+    let trendDirection = 0; // 1, -1
+    const rule3Indices: number[] = [];
+    for (let i = 1; i < n; i++) {
+      const diff = values[i] - values[i - 1];
+      if (diff > 0) {
+        if (trendDirection === 1) {
+          trendCount++;
+        } else {
+          trendCount = 2;
+          trendDirection = 1;
+        }
+      } else if (diff < 0) {
+        if (trendDirection === -1) {
+          trendCount++;
+        } else {
+          trendCount = 2;
+          trendDirection = -1;
+        }
+      } else {
+        trendCount = 1;
+        trendDirection = 0;
+      }
+      if (trendCount >= 6) {
+        rule3Indices.push(i + 1);
+      }
+    }
+    if (rule3Indices.length > 0) {
+      violations.push(language === 'sv'
+        ? `Systematisk trend: 6 eller fler mätvärden i följd som ständigt ökar eller minskar. Prov nr ${rule3Indices.join(', ')}`
+        : `Systematic trend: 6 or more consecutive points steadily increasing or decreasing. Sample #${rule3Indices.join(', ')}`
+      );
+    }
+
+    return {
+      isStable: violations.length === 0,
+      violations,
+      ucl,
+      lcl
+    };
+  }, [rawData, stats.mean, stats.sigmaWithin, stats.stdDev, isWithin, studyInfo.studyType, language]);
+
+  // Normality check using Skewness and Kurtosis
+  const normalityCheck = useMemo(() => {
+    const isNormal = Math.abs(stats.skewness) <= 1.0 && Math.abs(stats.kurtosis) <= 1.5;
+    return {
+      isNormal,
+      skewness: stats.skewness,
+      kurtosis: stats.kurtosis
+    };
+  }, [stats.skewness, stats.kurtosis]);
+
   const isStudyApproved = useMemo(() => {
     if (isOverlay && overlayMeasures) {
       return overlayMeasures.every(m => 
@@ -681,6 +808,179 @@ const CapabilityReportInner: React.FC<CapabilityReportProps> = ({
           )}
         </div>
       )}
+
+      {/* Process Audit & Diagnostics Section */}
+      {!isOverlay && (
+        <div style={{ marginTop: '15px', width: '100%', border: '2px solid #e2e8f0', padding: '12px', boxSizing: 'border-box', backgroundColor: '#fafafa' }}>
+          <h3 style={{ fontSize: '11px', fontWeight: '900', color: '#1e293b', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.5px', borderBottom: '2px solid #cbd5e1', paddingBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+            <Activity style={{ width: '14px', height: '14px', color: activeTheme.hex }} />
+            {language === 'sv' ? 'PROCESSUTVÄRDERING & AUDIT-DIAGNOSTIK' : 'PROCESS EVALUATION & AUDIT DIAGNOSTICS'}
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isPdfExporting ? '1fr' : '1fr', gap: '15px', marginTop: '10px' }}>
+            {/* Stability Card */}
+            <div style={{ border: '1px solid #e2e8f0', padding: '8px', backgroundColor: '#ffffff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '9px', fontWeight: '900', color: '#475569', textTransform: 'uppercase' }}>
+                  {t.stabilityStatusLabel}
+                </span>
+                <span style={{ 
+                  fontSize: '9px', 
+                  fontWeight: '900', 
+                  padding: '2px 6px', 
+                  color: '#ffffff', 
+                  backgroundColor: stabilityCheck.isStable ? '#10b981' : '#ef4444',
+                  borderRadius: '3px',
+                  textTransform: 'uppercase'
+                }}>
+                  {stabilityCheck.isStable 
+                    ? (language === 'sv' ? 'STABIL' : 'STABLE') 
+                    : (language === 'sv' ? 'INSTABIL' : 'INSTABLE')
+                  }
+                </span>
+              </div>
+              
+              <div style={{ fontSize: '9px', color: '#1e293b', lineHeight: '1.4', fontWeight: '500' }}>
+                {stabilityCheck.isStable ? (
+                  <p style={{ margin: 0, color: '#0f766e', fontWeight: 'bold' }}>{t.stabilityOkText}</p>
+                ) : (
+                  <div style={{ color: '#b91c1c' }}>
+                    <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>{t.stabilityWarningText}</p>
+                    <ul style={{ margin: 0, paddingLeft: '15px' }}>
+                      {stabilityCheck.violations.map((v, idx) => (
+                        <li key={idx} style={{ marginBottom: '2px', fontWeight: 'bold' }}>{v}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed #e2e8f0', fontSize: '8px', color: '#64748b', fontFamily: 'monospace' }}>
+                <span>{language === 'sv' ? 'Beräknade styrgränser' : 'Calculated Control Limits'}:</span>
+                <span style={{ marginLeft: '6px', fontWeight: 'bold', color: '#000000' }}>
+                  LCL = {formatNum(stabilityCheck.lcl, 4)} | UCL = {formatNum(stabilityCheck.ucl, 4)}
+                </span>
+              </div>
+            </div>
+
+            {/* Normality Card */}
+            <div style={{ border: '1px solid #e2e8f0', padding: '8px', backgroundColor: '#ffffff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '9px', fontWeight: '900', color: '#475569', textTransform: 'uppercase' }}>
+                  {t.normalityStatusLabel}
+                </span>
+                <span style={{ 
+                  fontSize: '9px', 
+                  fontWeight: '900', 
+                  padding: '2px 6px', 
+                  color: '#ffffff', 
+                  backgroundColor: (normalityCheck.isNormal || distribution !== 'Normal') ? '#10b981' : '#f59e0b',
+                  borderRadius: '3px',
+                  textTransform: 'uppercase'
+                }}>
+                  {distribution !== 'Normal' 
+                    ? (language === 'sv' ? 'ANPASSAD MODELL' : 'CUSTOM MODEL')
+                    : normalityCheck.isNormal 
+                      ? (language === 'sv' ? 'NORMALFÖRDELAD' : 'NORMAL') 
+                      : (language === 'sv' ? 'AVVIKELSE' : 'DEVIATION')
+                  }
+                </span>
+              </div>
+
+              <div style={{ fontSize: '9px', color: '#1e293b', lineHeight: '1.4', fontWeight: '500' }}>
+                {distribution !== 'Normal' ? (
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>
+                    {language === 'sv' 
+                      ? `Beräknas med percentilmetoden enligt ISO 22514-2 för anpassad ${distribution}-fördelning.` 
+                      : `Calculated using percentile method according to ISO 22514-2 for custom ${distribution} distribution.`
+                    }
+                  </p>
+                ) : normalityCheck.isNormal ? (
+                  <p style={{ margin: 0, color: '#0f766e', fontWeight: 'bold' }}>
+                    {t.normalityOkText.replace('{skew}', formatNum(normalityCheck.skewness, 2)).replace('{kurt}', formatNum(normalityCheck.kurtosis, 2))}
+                  </p>
+                ) : (
+                  <p style={{ margin: 0, color: '#b45309', fontWeight: 'bold' }}>
+                    {t.normalityWarningText.replace('{skew}', formatNum(normalityCheck.skewness, 2)).replace('{kurt}', formatNum(normalityCheck.kurtosis, 2))}
+                  </p>
+                )}
+              </div>
+
+              <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed #e2e8f0', fontSize: '8px', color: '#64748b', fontFamily: 'monospace' }}>
+                <span>{language === 'sv' ? 'Deskriptiv data' : 'Descriptive data'}:</span>
+                <span style={{ marginLeft: '6px', fontWeight: 'bold', color: '#000000' }}>
+                  {language === 'sv' ? 'Skevhet' : 'Skewness'} = {formatNum(stats.skewness, 3)} | {language === 'sv' ? 'Toppighet' : 'Kurtosis'} = {formatNum(stats.kurtosis, 3)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Free Text Report Commentary */}
+      {!isOverlay && (
+        <div style={{ marginTop: '15px', width: '100%', marginBottom: '15px' }}>
+          <h4 style={{ fontSize: '10px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.5px', borderBottom: `1px solid #e2e8f0`, paddingBottom: '4px', marginTop: 0 }}>
+            {t.reportCommentary}
+          </h4>
+          
+          {isPdfExporting ? (
+            <div style={{ 
+              border: `2px solid ${activeTheme.hex}`, 
+              padding: '12px', 
+              backgroundColor: '#fafafa', 
+              fontSize: '10px', 
+              color: '#000000', 
+              fontStyle: 'italic',
+              lineHeight: '1.5',
+              whiteSpace: 'pre-wrap',
+              minHeight: '40px',
+              fontWeight: '700'
+            }}>
+              {comment.trim() ? comment : (language === 'sv' ? '[Ingen kommentar angiven]' : '[No commentary entered]')}
+            </div>
+          ) : (
+            <div style={{ position: 'relative' }}>
+              <textarea
+                value={comment}
+                onChange={handleCommentChange}
+                placeholder={t.reportCommentaryPlaceholder}
+                style={{
+                  width: '100%',
+                  height: '80px',
+                  padding: '10px',
+                  boxSizing: 'border-box',
+                  border: `2px solid #cbd5e1`,
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  fontFamily: 'inherit',
+                  color: '#1e293b',
+                  backgroundColor: '#ffffff',
+                  outline: 'none',
+                  resize: 'vertical',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={(e) => e.target.style.borderColor = activeTheme.hex}
+                onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+              />
+              <div style={{ 
+                textAlign: 'right', 
+                fontSize: '8px', 
+                color: '#64748b', 
+                fontWeight: '900', 
+                marginTop: '3px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                {language === 'sv' ? 'Kopplad till PDF-export automatiskt' : 'Automatically mapped to PDF export'}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+
 
       {/* Footer / Standard Reference Section */}
       {( (!isOverlay && rawData && rawData.length > 0) || (isOverlay && overlayMeasures && overlayMeasures.length > 0) ) && (
