@@ -105,62 +105,50 @@ export const generateHistogramData = (
   if (data.length === 0) return [];
   const values = data.map(d => d.value);
   
-  // Vi vill att histogrammet täcker minst ±(Z + 1.5) sigma för att ge kurvan luft
-  const sigmaReach = stats.sigmaLevel + 1.5;
-  const isZeroBounded = limits.lsl === 0 || (limits.toleranceType === 'upper' && (limits.target === 0 || limits.target === undefined));
+  // Vi vill att histogrammets klasser (bins) täcker det faktiska dataområdet
+  // så att vi får precis det antal klasser vi önskar (6-8 st), utan tomma klasser i utkanterna.
+  let hMin = stats.min;
+  let hMax = stats.max;
   
-  let plotMin = Math.min(stats.min, stats.mean - sigmaReach * stats.stdDev);
-  let plotMax = Math.max(stats.max, stats.mean + sigmaReach * stats.stdDev);
-  
-  if (limits.lsl !== undefined) plotMin = Math.min(plotMin, limits.lsl);
-  if (limits.usl !== undefined) plotMax = Math.max(plotMax, limits.usl);
-
-  const range = plotMax - plotMin;
-  plotMin -= range * 0.05;
-  plotMax += range * 0.05;
-
-  if (isZeroBounded) {
-    plotMin = Math.max(0, plotMin);
+  const hRange = hMax - hMin;
+  if (hRange > 0) {
+    // Lägg till en minimal marginal så att min/max-värden inte hamnar precis på gränsen
+    hMin -= hRange * 0.01;
+    hMax += hRange * 0.01;
+  } else {
+    hMin -= 0.1;
+    hMax += 0.1;
   }
 
-  // Dynamisk beräkning av antal klasser (bins).
-  // För industriell professionalism vill vi ha tillräckligt många staplar
-  // även vid lägre n för att se fördelningens form tydligt.
   const n = values.length;
-  // Vi siktar på fler binar i det totala plot-spannet (~10 sigma)
-  // så att vi får ca 14-16 staplar i det centrala data-området vid n=30.
-  const numBins = n <= 30 ? 26 : Math.max(26, Math.min(60, Math.ceil(Math.sqrt(n) * 3.5)));
-  
-  let binWidth: number;
-  const rawBinWidth = (plotMax - plotMin) / numBins;
-  
-  if (rawBinWidth > 0 && isFinite(rawBinWidth)) {
-    // Högre precision i avrundningen för att behålla binar-antalet
-    const precision = Math.max(1e-12, Math.pow(10, Math.floor(Math.log10(rawBinWidth)) - 2));
-    binWidth = Math.ceil(rawBinWidth / precision) * precision;
+  let numBins = 7; // Standard 7 klasser
+  if (n < 15) {
+    numBins = 5;
+  } else if (n < 35) {
+    numBins = 6;
+  } else if (n < 60) {
+    numBins = 7;
+  } else if (n < 120) {
+    numBins = 8;
   } else {
+    numBins = 9;
+  }
+
+  let binWidth = (hMax - hMin) / numBins;
+  if (binWidth <= 0 || !isFinite(binWidth)) {
     binWidth = stats.stdDev > 0 ? stats.stdDev : 0.1;
   }
-  
-  if (binWidth <= 0) binWidth = 0.001;
-
-  // Justera plotMin och plotMax
-  plotMin = Math.floor(plotMin / binWidth) * binWidth;
-  const actualBinsCount = Math.ceil((plotMax - plotMin) / binWidth);
-  const finalNumBins = Math.min(100, Math.max(14, actualBinsCount)); 
 
   const bins: HistogramBin[] = [];
 
-  for (let i = 0; i < finalNumBins; i++) {
-    const binStart = plotMin + i * binWidth;
+  for (let i = 0; i < numBins; i++) {
+    const binStart = hMin + i * binWidth;
     const binEnd = binStart + binWidth;
-    const binValues = values.filter(v => v >= binStart && (i === finalNumBins - 1 ? v <= binEnd : v < binEnd));
+    // Se till att inkludera sista värdet i sista binnat
+    const binValues = values.filter(v => v >= binStart && (i === numBins - 1 ? v <= binEnd : v < binEnd));
     const count = binValues.length;
     
     const isOutOfSpec = binValues.some(v => {
-      // Vi jämför råvärden med en minimal epsilon för att hantera flyttalsprecision.
-      // Vi använder en positiv epsilon-offset för att säkerställa att värden som ligger
-      // precis på gränsen (eller extremt nära utanför) flaggas som gröna (in-spec).
       const epsilon = 0.0000000001;
       return (limits.lsl !== undefined && v < limits.lsl - epsilon) || 
              (limits.usl !== undefined && v > limits.usl + epsilon);

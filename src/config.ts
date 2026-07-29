@@ -7,7 +7,7 @@
 
 export const APP_IDENTITY = {
   name: "DIGICAP",
-  version: "1.0.2",
+  version: "1.5.1",
   tagline: "Professional SPC & Capability Analysis",
   copyright: "© 2026 DIGICAP Professional",
   registrationSymbol: "®",

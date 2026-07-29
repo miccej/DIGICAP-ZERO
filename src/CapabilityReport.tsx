@@ -38,6 +38,7 @@ interface CapabilityReportProps {
   calculationMethod?: 'serial' | 'within';
   subgroupSize?: number;
   theme?: AppTheme;
+  spcRule?: 'IATF' | 'AIAG' | 'ISO';
   themeColor?: {
     name: string;
     primary: string;
@@ -108,20 +109,28 @@ const StatCard: React.FC<{
 
 const FatBar = (props: any) => {
   const { x, y, width, height, fill, stroke, payload, barWidthPx } = props;
-  if (!height || height <= 0) return null;
-  const actualWidth = (barWidthPx || 30) * 0.95; 
+  if (!height || isNaN(height) || height <= 0 || isNaN(x) || isNaN(y)) return null;
+  const actualWidth = (barWidthPx || width || 0) * 0.95; 
   const adjustedX = x - (actualWidth / 2);
   const barFill = payload?.isOutOfSpec ? '#ef4444' : fill;
   const barStroke = payload?.isOutOfSpec ? '#991b1b' : stroke;
-
   return (
-    <rect x={adjustedX} y={y} width={actualWidth} height={height} fill={barFill} stroke={barStroke} strokeWidth={1} fillOpacity={0.85} />
+    <rect 
+      x={adjustedX} 
+      y={y} 
+      width={Math.max(0, actualWidth)} 
+      height={Math.max(0, height)} 
+      fill={barFill} 
+      stroke={barStroke} 
+      strokeWidth={1} 
+      fillOpacity={0.85} 
+    />
   );
 };
 
 const CapabilityReportInner: React.FC<CapabilityReportProps> = ({ 
   stats, limits, histogramData, studyInfo, language, distribution, overlayMeasures,
-  rawData, calculationMethod, subgroupSize, theme, themeColor, themeMode = 'light', isPdfExporting
+  rawData, calculationMethod, subgroupSize, theme, themeColor, themeMode = 'light', isPdfExporting, spcRule = 'IATF'
 }) => {
   const t = translations[language];
   const isOverlay = !!overlayMeasures && overlayMeasures.length > 0;
@@ -178,7 +187,8 @@ const CapabilityReportInner: React.FC<CapabilityReportProps> = ({
       );
     }
 
-    // Rule 2: 9 or more consecutive points on the same side of the mean
+    // Rule 2: 7, 8 or 9 consecutive points on the same side of the mean
+    const rule2Limit = spcRule === 'IATF' ? 7 : spcRule === 'ISO' ? 8 : 9;
     let sameSideCount = 0;
     let prevSide = 0; // -1, 1, 0
     const rule2Indices: number[] = [];
@@ -189,7 +199,7 @@ const CapabilityReportInner: React.FC<CapabilityReportProps> = ({
         prevSide = 0;
       } else if (currentSide === prevSide) {
         sameSideCount++;
-        if (sameSideCount >= 9) {
+        if (sameSideCount >= rule2Limit) {
           rule2Indices.push(i + 1);
         }
       } else {
@@ -199,8 +209,8 @@ const CapabilityReportInner: React.FC<CapabilityReportProps> = ({
     }
     if (rule2Indices.length > 0) {
       violations.push(language === 'sv'
-        ? `9 eller fler mätvärden i följd på samma sida om medelvärdet (förskjutning i processläge). Prov nr ${rule2Indices.join(', ')}`
-        : `9 or more consecutive points on the same side of the mean (shift in process level). Sample #${rule2Indices.join(', ')}`
+        ? `${rule2Limit} eller fler mätvärden i följd på samma sida om medelvärdet (förskjutning i processläge, enligt ${spcRule}). Prov nr ${rule2Indices.join(', ')}`
+        : `${rule2Limit} or more consecutive points on the same side of the mean (shift in process level, per ${spcRule}). Sample #${rule2Indices.join(', ')}`
       );
     }
 
@@ -1074,7 +1084,10 @@ const CapabilityReportInner: React.FC<CapabilityReportProps> = ({
           <p style={{ fontSize: '8px', color: isPdfExporting ? '#475569' : '#94a3b8', lineHeight: '1.4', margin: 0 }}>
             {limits.standard === 'IATF' && t.methodologyIATF}
             {limits.standard === 'VDA' && t.methodologyVDA}
-            {t.methodologyVerified + (t[`dist${distribution}` as keyof typeof t] || distribution) + "."}
+            {t.methodologyVerified + (t[`dist${distribution}` as keyof typeof t] || distribution) + ". "}
+            {language === 'sv' 
+              ? `SPC-regelverk: ${spcRule === 'IATF' ? 'IATF 16949 / VDA (7 i följd)' : spcRule === 'ISO' ? 'ISO 7870-2 (8 i följd)' : 'AIAG / Nelson (9 i följd)'}.`
+              : `SPC Rule: ${spcRule === 'IATF' ? 'IATF 16949 / VDA (7 consecutive)' : spcRule === 'ISO' ? 'ISO 7870-2 (8 consecutive)' : 'AIAG / Nelson (9 consecutive)'}.`}
             {isWithin && (
               <span style={{ display: 'block', fontWeight: 'bold', color: '#000000', marginTop: '2px' }}>
                 {t.withinGroupReport} (n={subgroupSize}).

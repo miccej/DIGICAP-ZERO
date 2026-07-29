@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 console.log("DIGICAP App Loading...");
 import { 
   Menu, X, Globe, Plus, FolderOpen, Save, FileSpreadsheet, Monitor, Play, CheckCircle2, RotateCcw as RotateCcwIcon, FileText,
-  AlertTriangle, CheckCircle, Clock, DownloadCloud, Download, WifiOff, Circle, PlayCircle, Info, Settings, Gauge, Book, BarChart, Calculator, ChevronDown, BookOpen, Target, HelpCircle, ShieldCheck, Scale, Mail, Sigma, FileDown, Palette, Layers, Maximize, ExternalLink, Loader2, Users, RefreshCw, LayoutDashboard, Sparkles, LogIn, Key
+  AlertTriangle, Bug, CheckCircle, Clock, DownloadCloud, Download, WifiOff, Circle, PlayCircle, Info, Settings, Gauge, Book, BarChart, Calculator, ChevronDown, BookOpen, Target, HelpCircle, ShieldCheck, Scale, Mail, Sigma, FileDown, Palette, Layers, Maximize, ExternalLink, Loader2, Users, RefreshCw, LayoutDashboard, Sparkles, LogIn, Key
 } from 'lucide-react';
 import DataInput from './DataInput';
 import LimitsInput from './LimitsInput';
@@ -160,8 +160,8 @@ const NormalCurve = ({ color }: { color: string }) => (
     <path
       d="M 0 180 C 100 180 130 20 200 20 C 270 20 300 180 400 180"
       fill="none"
-      stroke="#1d4ed8" // Blue-700
-      strokeWidth="3"
+      stroke="#d97706"
+      strokeWidth="1.5"
       strokeLinecap="round"
       className="drop-shadow-sm"
     />
@@ -233,7 +233,7 @@ const LandingPage: React.FC<{
         </button>
       </div>
 
-      {/* BOTTOM: DEMO BUTTON + CURVE */}
+      {/* BOTTOM: CURVE */}
       <div className="w-full max-w-[260px] flex flex-col items-center gap-4 z-10 mb-8 mx-auto shrink-0">
         <button 
           onClick={onDemo}
@@ -252,14 +252,14 @@ const LandingPage: React.FC<{
             </p>
             
             {/* Language Selector */}
-            <div className="relative group">
+            <div className="relative group shrink-0">
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                 <Globe className="w-3 h-3 text-slate-500 group-hover:text-slate-300 transition-colors" />
               </div>
               <select 
                 value={language} 
                 onChange={onLanguageChange}
-                className="appearance-none bg-slate-900/50 hover:bg-slate-800/80 text-slate-400 hover:text-slate-200 text-[10px] font-bold uppercase tracking-widest py-2 pl-8 pr-8 border border-slate-800 hover:border-slate-700 rounded-full transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-700"
+                className="appearance-none bg-slate-900/50 hover:bg-slate-800/80 text-slate-400 hover:text-slate-200 text-[10px] font-bold uppercase tracking-[0.2em] py-2 pl-9 pr-10 border border-slate-800 hover:border-slate-700 rounded-full transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-700"
               >
                 {Object.entries(languageNames).map(([code, name]) => (
                   <option key={code} value={code} className="bg-slate-900 text-white">{name}</option>
@@ -295,6 +295,24 @@ const App: React.FC = () => {
   }, []);
 
   const [language, setLanguage] = useState<Language>('en');
+  const [spcRule, setSpcRule] = useState<'IATF' | 'AIAG' | 'ISO'>(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('digicap_spc_rule') : null;
+      if (saved === 'IATF' || saved === 'AIAG' || saved === 'ISO') {
+        return saved;
+      }
+      return 'IATF';
+    } catch (e) {
+      return 'IATF';
+    }
+  });
+
+  const handleSpcRuleChange = (newRule: 'IATF' | 'AIAG' | 'ISO') => {
+    setSpcRule(newRule);
+    try {
+      if (typeof window !== 'undefined') localStorage.setItem('digicap_spc_rule', newRule);
+    } catch (e) {}
+  };
 
   const [theme] = useState<AppTheme>('sharp');
   const t = translations[language];
@@ -349,7 +367,7 @@ const App: React.FC = () => {
     violet: {
       name: t.colorViolet,
       primary: 'violet',
-      logo: 'text-white',
+      logo: 'text-violet-500',
       newStudy: 'bg-violet-600 hover:bg-violet-700',
       activeTab: 'bg-violet-600 border-violet-600',
       border: 'border-violet-500',
@@ -364,7 +382,7 @@ const App: React.FC = () => {
     orange: {
       name: t.colorOrange,
       primary: 'amber',
-      logo: 'text-white',
+      logo: 'text-amber-500',
       newStudy: 'bg-amber-600 hover:bg-amber-700',
       activeTab: 'bg-amber-600 border-amber-600',
       border: 'border-amber-500',
@@ -379,7 +397,7 @@ const App: React.FC = () => {
     red: {
       name: t.colorRed,
       primary: 'red',
-      logo: 'text-white',
+      logo: 'text-red-600',
       newStudy: 'bg-red-700 hover:bg-red-800',
       activeTab: 'bg-red-700 border-red-700',
       border: 'border-red-600',
@@ -394,7 +412,7 @@ const App: React.FC = () => {
     green: {
       name: t.colorGreen,
       primary: 'emerald',
-      logo: 'text-white',
+      logo: 'text-emerald-600',
       newStudy: 'bg-emerald-700 hover:bg-emerald-800',
       activeTab: 'bg-emerald-700 border-emerald-700',
       border: 'border-emerald-600',
@@ -409,7 +427,7 @@ const App: React.FC = () => {
     blue: {
       name: t.colorBlue,
       primary: 'blue',
-      logo: 'text-white',
+      logo: 'text-blue-500',
       newStudy: 'bg-blue-900 hover:bg-blue-950',
       activeTab: 'bg-blue-900 border-blue-900',
       border: 'border-blue-900',
@@ -424,7 +442,7 @@ const App: React.FC = () => {
   };
 
   const logoTheme = themeColors[appColor] || themeColors.navy;
-  const currentTheme = themeColors[appColor] || themeColors.navy;
+  const currentTheme = themeColors.navy;
 
   const [showNewStudyConfirm, setShowNewStudyConfirm] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
@@ -1776,7 +1794,7 @@ const App: React.FC = () => {
   return (
     <>
       {/* New Study Choice Modal */}
-      {showChoiceModal && !isMasterUser && !isFreeUnlocked && (
+      {showChoiceModal && (
         <div className="fixed inset-0 z-[1200] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-slate-700 max-w-sm w-full p-8 shadow-2xl rounded-2xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-indigo-500"></div>
@@ -1798,9 +1816,9 @@ const App: React.FC = () => {
               >
                 <Sparkles className={`w-5 h-5 ${freeTrialCount >= 3 ? 'text-slate-600' : 'text-amber-200'}`} />
                 <div className="flex flex-col items-start leading-tight">
-                  <span className="text-[11px]">Testa appen gratis (3 tester)</span>
+                  <span className="text-[11px]">{t.newStudyOptionFreeTrial}</span>
                   <span className="text-[8px] opacity-70 font-mono tracking-tight">
-                    {freeTrialCount >= 3 ? 'GRATISTESTER FÖRBRUKADE' : `${3 - freeTrialCount} provtester kvar`}
+                    {freeTrialCount >= 3 ? t.freeTrialsUsedUp : (t.freeTrialsRemaining || '').replace('{count}', (3 - freeTrialCount).toString())}
                   </span>
                 </div>
               </button>
@@ -2121,23 +2139,9 @@ const App: React.FC = () => {
       {showLanding ? (
         <PhoneFrame>
           <LandingPage 
-            onStart={() => {
-              if (userAccess?.isForever || isMasterUser || isFreeUnlocked) {
-                handleStartApp();
-              } else if (freeTrialCount >= 3) {
-                setShowTrialEndedModal(true);
-              } else {
-                setShowChoiceModal(true);
-              }
-            }} 
+            onStart={() => setShowChoiceModal(true)} 
             onDemo={handleStartDemo}
-            onLogin={() => {
-              if (isMasterUser || isFreeUnlocked) {
-                handleStartApp();
-              } else {
-                setShowChoiceModal(true);
-              }
-            }}
+            onLogin={() => setShowChoiceModal(true)}
             onLicenseLogin={() => setShowLicenseLogin(true)}
             themeColor={currentTheme} 
             logoColorClass={logoTheme.logo}
@@ -2350,6 +2354,7 @@ const App: React.FC = () => {
                           themeColor={currentTheme}
                           themeMode={themeMode}
                           isPdfExporting={isExporting}
+                          spcRule={spcRule}
                       />
                   </div>
               ) : (
@@ -2385,6 +2390,20 @@ const App: React.FC = () => {
                         </p>
                       </div>
 
+                      <div className="pt-2">
+                          <label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">
+                              {language === 'sv' ? 'SPC-Regelverk (Styrgränser)' : 'SPC Standard (Control Limits)'}
+                          </label>
+                          <select 
+                              value={spcRule} 
+                              onChange={(e) => handleSpcRuleChange(e.target.value as 'IATF' | 'AIAG' | 'ISO')} 
+                              className={`${selectBaseStyle} ${themeMode === 'dark' ? 'bg-slate-800 text-white border-slate-600' : 'bg-white text-slate-900 border-slate-400'} mb-4`}
+                          >
+                              <option value="IATF">IATF 16949 / VDA (7 pts)</option>
+                              <option value="ISO">ISO 7870-2 (8 pts)</option>
+                              <option value="AIAG">AIAG / Nelson (9 pts)</option>
+                          </select>
+                      </div>
                       <div><label className="text-[12px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">{t.languageLabel}</label>
                           <select value={language} onChange={handleLanguageChange} className={`${selectBaseStyle} ${themeMode === 'dark' ? 'bg-slate-800 text-white border-slate-600' : 'bg-white text-slate-900 border-slate-400'}`}>{Object.entries(languageNames).map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select>
                           <div className="mt-2 text-center">
@@ -2412,6 +2431,16 @@ const App: React.FC = () => {
                             </span>
                             <ChevronDown className="w-5 h-5 -rotate-90 text-white/50" />
                           </button>
+                          <a 
+                            href="mailto:info@digicap.app"
+                            className={`w-full flex items-center justify-between p-4 ${themeMode === 'dark' ? 'bg-red-950/30 border-red-500/30 text-red-400 hover:bg-red-950/50' : 'bg-red-50 border-red-200 text-red-800 hover:bg-red-100'} border-2 font-bold text-sm uppercase tracking-wide text-left transition-all cursor-pointer`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Bug className="w-5 h-5 text-red-500" /> 
+                              RAPPORTERA EN BUGG
+                            </span>
+                            <ExternalLink className="w-5 h-5 text-red-400/50" />
+                          </a>
                       </div>
 
                       <div className="pt-6 border-t-2 border-slate-200 space-y-6">
@@ -2820,7 +2849,13 @@ const App: React.FC = () => {
                         
                         <div className="flex flex-col gap-5 leading-relaxed text-[11px] font-bold">
                           <div className={`border-b ${themeMode === 'dark' ? 'border-slate-850' : 'border-slate-200'} pb-3`}>
-                            <strong className={`${themeMode === 'dark' ? 'text-white' : 'text-black'} block text-xs`}>v1.5.0 (Aktuell version)</strong>
+                            <strong className={`${themeMode === 'dark' ? 'text-white' : 'text-black'} block text-xs`}>v1.5.1 (Aktuell version)</strong>
+                            <ul className="list-disc pl-5 mt-1 space-y-1 opacity-80 font-medium">
+                              <li>Stöd för valbart SPC-regelverk för stabilitetsgränser i inställningarna: IATF 16949 / VDA (7 i följd), ISO 7870-2 (8 i följd) samt AIAG / Nelson (9 i följd).</li>
+                            </ul>
+                          </div>
+                          <div className={`border-b ${themeMode === 'dark' ? 'border-slate-850' : 'border-slate-200'} pb-3`}>
+                            <strong className={`${themeMode === 'dark' ? 'text-white' : 'text-black'} block text-xs`}>v1.5.0</strong>
                             <ul className="list-disc pl-5 mt-1 space-y-1 opacity-80 font-medium">
                               <li>Möjlighet till rapportkommentar/fritext som inkluderas i PDF-exporten.</li>
                               <li>Processutvärdering med I-MR Nelson-regler (stabilitet) och varningar om instabil process.</li>

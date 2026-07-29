@@ -1,1 +1,1 @@
-Version 1.0.9 - Branding and Icon update
+Version 1.5.1 - SPC Rules configuration & Changelog update
