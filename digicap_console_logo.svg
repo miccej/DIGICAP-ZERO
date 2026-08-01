@@ -1,48 +1,36 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Full Bleed Premium Deep Navy Background -->
+  <!-- Deep Navy Background (#081427) matching 1st page canvas -->
   <rect width="512" height="512" fill="#081427" />
 
-  <!-- Bold Typographical Block perfectly centered and optimized for visibility -->
-  <g transform="translate(256, 0)">
-    <!-- DIGI - Line 1 (Super White, bold font-size and optimized vertical positioning) -->
-    <text 
-      x="0" 
-      y="215" 
-      text-anchor="middle" 
-      fill="#ffffff" 
-      stroke="#ffffff" 
-      stroke-width="7" 
-      stroke-linejoin="round" 
-      paint-order="stroke fill" 
-      style="font-family: 'Arial Black', 'Impact', sans-serif; font-weight: 900; font-size: 175px; letter-spacing: -0.05em;"
-    >
-      DIGI
-    </text>
-    
-    <!-- CAP - Line 2 (Super White, bold font-size) -->
-    <text 
-      x="0" 
-      y="370" 
-      text-anchor="middle" 
-      fill="#ffffff" 
-      stroke="#ffffff" 
-      stroke-width="7" 
-      stroke-linejoin="round" 
-      paint-order="stroke fill" 
-      style="font-family: 'Arial Black', 'Impact', sans-serif; font-weight: 900; font-size: 175px; letter-spacing: -0.05em;"
-    >
-      CAP
-    </text>
+  <!-- Subtle Inner Luster Accent Border -->
+  <rect x="8" y="8" width="496" height="496" fill="none" stroke="#334155" stroke-width="2" rx="12" opacity="0.6" />
 
-    <!-- CMK/CPK/PPK Subtitle (Super White, positioned neatly at the bottom with high readability) -->
-    <text
-      x="0"
-      y="445"
-      text-anchor="middle"
-      fill="#ffffff"
-      style="font-family: 'Arial Black', 'Impact', 'Inter', sans-serif; font-weight: 900; font-size: 32px; letter-spacing: 0.08em;"
-    >
-      CMK/CPK/PPK
-    </text>
+  <g transform="translate(256, 240)">
+    <!-- Main Title: DIGICAP -->
+    <text 
+      x="-18" 
+      y="10" 
+      text-anchor="middle" 
+      fill="#ffffff" 
+      style="font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 900; font-size: 82px; letter-spacing: 0.02em;"
+    >DIGICAP</text>
+    
+    <!-- Registered Symbol ® -->
+    <text 
+      x="172" 
+      y="-35" 
+      text-anchor="start" 
+      fill="#cbd5e1" 
+      style="font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 22px;"
+    >®</text>
+
+    <!-- Subtitle: CAPABILITY ANYWHERE -->
+    <text 
+      x="-2" 
+      y="44" 
+      text-anchor="middle" 
+      fill="#94a3b8" 
+      style="font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 600; font-size: 19.5px; letter-spacing: 0.38em; text-transform: uppercase;"
+    >CAPABILITY ANYWHERE</text>
   </g>
 </svg>

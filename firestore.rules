@@ -30,10 +30,9 @@ service cloud.firestore {
 
     // --- LEMON SQUEEZY LICENSES ---
     match /licenses/{email} {
-      // Temporary loosening for testing: Allow any signed in user to check any license
-      // This helps if email in token doesn't match license email exactly (case/anonymity)
-      allow get: if isSignedIn();
-      // Admin (you) can list all licenses
+      // Allow checking license by doc ID without auth restrictions
+      allow get: if true;
+      // Admin can list all licenses
       allow list: if isSignedIn() && (request.auth.token.email == 'mikael.rj.johansson@gmail.com');
     }
 

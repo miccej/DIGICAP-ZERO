@@ -849,12 +849,19 @@ const App: React.FC = () => {
   };
 
   const handleLicenseLogin = async () => {
-    if (!loginEmail || !loginOrderId) return;
+    const email = loginEmail.trim();
+    const orderId = loginOrderId.trim();
+
+    if (!email && !orderId) {
+      setToast({ message: language === 'sv' ? "Ange e-post eller order-ID/nyckel" : "Enter email or order ID/key", type: 'error' });
+      return;
+    }
+
     setIsLoggingIn(true);
     try {
-      const success = await verifyLicense(loginEmail, loginOrderId);
+      const success = await verifyLicense(email, orderId);
       if (success) {
-        setToast({ message: "License verified successfully!", type: 'success' });
+        setToast({ message: language === 'sv' ? "Licens verifierad!" : "License verified successfully!", type: 'success' });
         setShowLicenseLogin(false);
         setShowChoiceModal(false);
         
@@ -874,10 +881,11 @@ const App: React.FC = () => {
         setIsDemoMode(false);
         confirmNewStudy();
       } else {
-        setToast({ message: translations[language].invalidLicense, type: 'error' });
+        setToast({ message: translations[language].invalidLicense || (language === 'sv' ? "Ingen giltig licens hittades" : "Invalid license"), type: 'error' });
       }
-    } catch (error) {
-      setToast({ message: "Login failed", type: 'error' });
+    } catch (error: any) {
+      console.error("License login error:", error);
+      setToast({ message: language === 'sv' ? "Inloggningen misslyckades" : "Login failed", type: 'error' });
     } finally {
       setIsLoggingIn(false);
     }
@@ -1901,7 +1909,7 @@ const App: React.FC = () => {
 
               <button 
                 onClick={handleLicenseLogin}
-                disabled={isLoggingIn || !loginEmail || !loginOrderId}
+                disabled={isLoggingIn || (!loginEmail.trim() && !loginOrderId.trim())}
                 className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center mt-4"
               >
                 {isLoggingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -3124,77 +3132,204 @@ const App: React.FC = () => {
                       <div className="bg-slate-900 border border-slate-800 p-5 rounded-sm space-y-2">
                         <h4 className="text-white font-black text-xs uppercase tracking-widest">Hämta digitala logotyper</h4>
                         <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider leading-relaxed">
-                          Här hittar du de färdigbehandlade logotyperna i vitt utförande med elegant marinblå bakgrund, redo att sparas, bäddas in eller skickas för externa granskningar.
+                          Här hittar du den aktiva DIGICAP®-logotypen (med undertext CAPABILITY ANYWHERE) i vitt utförande med marinblå bakgrund. Tillgänglig som SVG, PNG och JPG med nedladdnings- och kopieringsfunktion.
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* SVG Vektor */}
-                        <div className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col justify-between gap-4">
-                          <div className="space-y-2">
-                            <span className="bg-blue-950/40 text-blue-400 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-blue-800/40 inline-block">
-                              SVG format
-                            </span>
-                            <div className="text-xs text-white font-black">digicap_console_logo.svg</div>
-                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Vektor-format. Bäst för framtida tryck eller obegränsad skalning.</p>
-                            
-                            <div className="border border-slate-800 bg-[#081427] aspect-square w-full rounded flex items-center justify-center p-4">
-                              <img src="/digicap_console_logo.svg?v=2" alt="DigiCap SVG" className="max-h-36 object-contain" referrerPolicy="no-referrer" />
-                            </div>
-                          </div>
-                          <a 
-                            href="/digicap_console_logo.svg" 
-                            download="digicap_console_logo.svg" 
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-black text-center text-[10px] uppercase tracking-widest py-3 rounded-sm transition-all focus:outline-none"
-                          >
-                            Ladda ner SVG
-                          </a>
-                        </div>
+                      {(() => {
+                        const logoSvgRaw = `<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#081427" />
+  <rect x="8" y="8" width="496" height="496" fill="none" stroke="#334155" stroke-width="2" rx="12" opacity="0.6" />
+  <g transform="translate(256, 240)">
+    <text x="-18" y="10" text-anchor="middle" fill="#ffffff" style="font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 900; font-size: 82px; letter-spacing: 0.02em;">DIGICAP</text>
+    <text x="172" y="-35" text-anchor="start" fill="#cbd5e1" style="font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 22px;">®</text>
+    <text x="-2" y="44" text-anchor="middle" fill="#94a3b8" style="font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 600; font-size: 19.5px; letter-spacing: 0.38em; text-transform: uppercase;">CAPABILITY ANYWHERE</text>
+  </g>
+</svg>`;
 
-                        {/* PNG Högupplöst */}
-                        <div className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col justify-between gap-4">
-                          <div className="space-y-2">
-                            <span className="bg-emerald-950/40 text-emerald-400 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-emerald-800/40 inline-block">
-                              PNG format
-                            </span>
-                            <div className="text-xs text-white font-black">digicap_console_logo.png</div>
-                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Högupplöst 512x512 bild. Bra för dokumentationer & webb.</p>
-                            
-                            <div className="border border-slate-800 bg-[#081427] aspect-square w-full rounded flex items-center justify-center p-4">
-                              <img src="/digicap_console_logo.png?v=2" alt="DigiCap PNG" className="max-h-36 object-contain" referrerPolicy="no-referrer" />
-                            </div>
-                          </div>
-                          <a 
-                            href="/digicap_console_logo.png" 
-                            download="digicap_console_logo.png" 
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-center text-[10px] uppercase tracking-widest py-3 rounded-sm transition-all focus:outline-none"
-                          >
-                            Ladda ner PNG
-                          </a>
-                        </div>
+                        const svgDataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(logoSvgRaw)}`;
 
-                        {/* JPEG Standard */}
-                        <div className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col justify-between gap-4">
-                          <div className="space-y-2">
-                            <span className="bg-amber-950/40 text-amber-500 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-amber-800/40 inline-block">
-                              JPG format
-                            </span>
-                            <div className="text-xs text-white font-black">digicap_console_logo.jpg</div>
-                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Standard JPEG-fil 512x512 bild. Bäst för maximal kompatibilitet.</p>
-                            
-                            <div className="border border-slate-800 bg-[#081427] aspect-square w-full rounded flex items-center justify-center p-4">
-                              <img src="/digicap_console_logo.jpg?v=2" alt="DigiCap JPG" className="max-h-36 object-contain" referrerPolicy="no-referrer" />
+                        const handleDownload = (format: 'svg' | 'png' | 'jpg') => {
+                          const filename = `digicap_console_logo.${format}`;
+                          if (format === 'svg') {
+                            const blob = new Blob([logoSvgRaw], { type: 'image/svg+xml;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            setToast({ message: "SVG-fil nedladdad!", type: 'success' });
+                            return;
+                          }
+
+                          const img = new Image();
+                          const svgBlob = new Blob([logoSvgRaw], { type: 'image/svg+xml;charset=utf-8' });
+                          const url = URL.createObjectURL(svgBlob);
+
+                          img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 512;
+                            canvas.height = 512;
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return;
+
+                            if (format === 'jpg') {
+                              ctx.fillStyle = '#081427';
+                              ctx.fillRect(0, 0, 512, 512);
+                            }
+                            ctx.drawImage(img, 0, 0);
+                            URL.revokeObjectURL(url);
+
+                            const mime = format === 'png' ? 'image/png' : 'image/jpeg';
+                            canvas.toBlob((blob) => {
+                              if (!blob) return;
+                              const downloadUrl = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = downloadUrl;
+                              a.download = filename;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(downloadUrl);
+                              setToast({ message: `${format.toUpperCase()}-bild nedladdad!`, type: 'success' });
+                            }, mime, 0.95);
+                          };
+
+                          img.src = url;
+                        };
+
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* SVG Vektor */}
+                            <div className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col justify-between gap-4">
+                              <div className="space-y-2">
+                                <span className="bg-blue-950/40 text-blue-400 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-blue-800/40 inline-block">
+                                  SVG format
+                                </span>
+                                <div className="text-xs text-white font-black">digicap_console_logo.svg</div>
+                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Vektor-format. Bäst för tryck, skalning och webb-inbäddning.</p>
+                                
+                                <div className="border border-slate-800 bg-[#081427] aspect-square w-full rounded flex items-center justify-center p-4">
+                                  <img src={svgDataUrl} alt="DigiCap SVG" className="max-h-36 object-contain" referrerPolicy="no-referrer" />
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                <button 
+                                  onClick={() => handleDownload('svg')}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white font-black text-center text-[10px] uppercase tracking-widest py-2.5 rounded-sm transition-all focus:outline-none"
+                                >
+                                  Ladda ner SVG
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(logoSvgRaw);
+                                      setToast({ message: "SVG-kod kopierad till urklipp!", type: 'success' });
+                                    } catch (e) {
+                                      setToast({ message: "Kunde inte kopiera SVG", type: 'error' });
+                                    }
+                                  }}
+                                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-center text-[10px] uppercase tracking-widest py-2.5 rounded-sm transition-all border border-slate-700"
+                                >
+                                  Kopiera SVG-kod
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* PNG Högupplöst */}
+                            <div className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col justify-between gap-4">
+                              <div className="space-y-2">
+                                <span className="bg-emerald-950/40 text-emerald-400 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-emerald-800/40 inline-block">
+                                  PNG format
+                                </span>
+                                <div className="text-xs text-white font-black">digicap_console_logo.png</div>
+                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Högupplöst 512x512 bild. Bra för presentationer & appar.</p>
+                                
+                                <div className="border border-slate-800 bg-[#081427] aspect-square w-full rounded flex items-center justify-center p-4">
+                                  <img src={svgDataUrl} alt="DigiCap PNG" className="max-h-36 object-contain" referrerPolicy="no-referrer" />
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                <button 
+                                  onClick={() => handleDownload('png')}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-center text-[10px] uppercase tracking-widest py-2.5 rounded-sm transition-all focus:outline-none"
+                                >
+                                  Ladda ner PNG
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const img = new Image();
+                                      const svgBlob = new Blob([logoSvgRaw], { type: 'image/svg+xml;charset=utf-8' });
+                                      const url = URL.createObjectURL(svgBlob);
+                                      img.onload = () => {
+                                        const canvas = document.createElement('canvas');
+                                        canvas.width = 512;
+                                        canvas.height = 512;
+                                        const ctx = canvas.getContext('2d');
+                                        if (ctx) {
+                                          ctx.drawImage(img, 0, 0);
+                                          canvas.toBlob(async (blob) => {
+                                            if (blob && navigator.clipboard && ClipboardItem) {
+                                              try {
+                                                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                                                setToast({ message: "PNG-bild kopierad till urklipp!", type: 'success' });
+                                              } catch (e) {
+                                                setToast({ message: "Kunde inte kopiera bild direkt till urklipp", type: 'error' });
+                                              }
+                                            }
+                                          }, 'image/png');
+                                        }
+                                        URL.revokeObjectURL(url);
+                                      };
+                                      img.src = url;
+                                    } catch (e) {
+                                      setToast({ message: "Kunde inte kopiera bild", type: 'error' });
+                                    }
+                                  }}
+                                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-center text-[10px] uppercase tracking-widest py-2.5 rounded-sm transition-all border border-slate-700"
+                                >
+                                  Kopiera PNG-bild
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* JPEG Standard */}
+                            <div className="bg-slate-950 border border-slate-800 p-4 rounded-sm flex flex-col justify-between gap-4">
+                              <div className="space-y-2">
+                                <span className="bg-amber-950/40 text-amber-500 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest rounded-full border border-amber-800/40 inline-block">
+                                  JPG format
+                                </span>
+                                <div className="text-xs text-white font-black">digicap_console_logo.jpg</div>
+                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Standard JPEG 512x512 bild. Maximal kompatibilitet.</p>
+                                
+                                <div className="border border-slate-800 bg-[#081427] aspect-square w-full rounded flex items-center justify-center p-4">
+                                  <img src={svgDataUrl} alt="DigiCap JPG" className="max-h-36 object-contain" referrerPolicy="no-referrer" />
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                <button 
+                                  onClick={() => handleDownload('jpg')}
+                                  className="bg-amber-600 hover:bg-amber-700 text-black font-black text-center text-[10px] uppercase tracking-widest py-2.5 rounded-sm transition-all focus:outline-none"
+                                >
+                                  Ladda ner JPG
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    handleDownload('jpg');
+                                  }}
+                                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-center text-[10px] uppercase tracking-widest py-2.5 rounded-sm transition-all border border-slate-700"
+                                >
+                                  Spara / Kopiera JPG
+                                </button>
+                              </div>
                             </div>
                           </div>
-                          <a 
-                            href="/digicap_console_logo.jpg" 
-                            download="digicap_console_logo.jpg" 
-                            className="bg-amber-600 hover:bg-amber-700 text-black font-black text-center text-[10px] uppercase tracking-widest py-3 rounded-sm transition-all focus:outline-none"
-                          >
-                            Ladda ner JPG
-                          </a>
-                        </div>
-                      </div>
+                        );
+                      })()}
                     </div>
                   ) : (
                     (() => {

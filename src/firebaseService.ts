@@ -64,43 +64,73 @@ export const redeemCode = async (userId: string, code: string) => {
   return updates;
 };
 
+import { EXTERNAL_LINKS } from './config';
+
 export const verifyLicense = async (email: string, orderId: string): Promise<boolean> => {
+  const cleanEmail = (email || '').toLowerCase().trim();
+  const cleanKey = (orderId || '').trim();
+
+  if (!cleanEmail && !cleanKey) return false;
+
   try {
-    const response = await fetch('/api/verify-license', {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+    const baseUrl = isNative ? EXTERNAL_LINKS.API_BASE_URL : '';
+
+    const response = await fetch(`${baseUrl}/api/verify-license`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, orderId }),
+      body: JSON.stringify({ email: cleanEmail, orderId: cleanKey }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const result = await response.json();
       if (result.success) {
-        // Save to local storage for persistence across reloads
-        localStorage.setItem('digicap_active_license', email.toLowerCase().trim());
+        const activeKey = cleanEmail || result.license?.email || cleanKey;
+        localStorage.setItem('digicap_active_license', activeKey);
         return true;
       }
     }
-    return false;
   } catch (error) {
-    console.error("Error verifying license:", error);
-    return false;
+    console.error("Error verifying license via backend API:", error);
   }
+
+  // Client-side Firestore fallback check if server API was unreachable
+  try {
+    if (cleanEmail) {
+      const active = await checkLicenseByEmail(cleanEmail);
+      if (active) {
+        localStorage.setItem('digicap_active_license', cleanEmail);
+        return true;
+      }
+    }
+  } catch (fallbackErr) {
+    console.error("Client fallback license verification failed:", fallbackErr);
+  }
+
+  return false;
 };
 
 export const checkLicenseByEmail = async (email: string): Promise<boolean> => {
   if (!email) return false;
+  const cleanEmail = email.toLowerCase().trim();
   try {
-    const licenseDoc = await getDoc(doc(db, 'licenses', email.toLowerCase().trim()));
+    const licenseDoc = await getDoc(doc(db, 'licenses', cleanEmail));
     if (licenseDoc.exists()) {
       const data = licenseDoc.data();
-      const validStatuses = ['active', 'on_trial', 'past_due', 'subscribed'];
-      return validStatuses.includes(data.status);
+      const validStatuses = ['active', 'on_trial', 'past_due', 'subscribed', 'paid'];
+      return validStatuses.includes(data?.status);
     }
     return false;
   } catch (error) {
-    console.error("Error checking license:", error);
+    console.error("Error checking license by email:", error);
     return false;
   }
 };

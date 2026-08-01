@@ -30,15 +30,33 @@ app.get("/api/webhook", (req, res) => {
   res.send("DIGICAP WEBHOOK ENDPOINT IS LIVE. USE POST.");
 });
 
-// Serve generated logos directly for easy user download
-app.get("/digicap_console_logo.png", (req, res) => {
-  res.sendFile(path.resolve("digicap_console_logo.png"));
-});
-app.get("/digicap_console_logo.jpg", (req, res) => {
-  res.sendFile(path.resolve("digicap_console_logo.jpg"));
-});
-app.get("/digicap_console_logo.svg", (req, res) => {
-  res.sendFile(path.resolve("digicap_console_logo.svg"));
+// Admin protected logos
+app.get("/api/admin/logos/:format", (req, res) => {
+  const { format } = req.params;
+  const { password } = req.query;
+  
+  if (password !== "1731") {
+    return res.status(403).json({ error: "Forbidden. Requires admin password." });
+  }
+
+  const formatMap: Record<string, string> = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    svg: "image/svg+xml"
+  };
+
+  const mimeType = formatMap[format];
+  if (!mimeType) {
+    return res.status(400).json({ error: "Invalid format" });
+  }
+
+  const fileExt = format === 'jpeg' ? 'jpg' : format;
+  const filePath = path.resolve(`digicap_console_logo.${fileExt}`);
+  
+  res.setHeader("Content-Type", mimeType);
+  res.setHeader("Content-Disposition", `attachment; filename="digicap_console_logo.${fileExt}"`);
+  res.sendFile(filePath);
 });
 
 // Health check
@@ -84,18 +102,75 @@ app.post("/api/verify-license", async (req, res) => {
   try {
     const { email, orderId } = req.body;
     const db = getAdminDb();
-    if (!db || !email || !orderId) return res.status(400).json({ error: "Missing data" });
-    const docId = email.toLowerCase().trim();
-    const licenseDoc = await db.collection("licenses").doc(docId).get();
-    if (licenseDoc.exists) {
-      const data = licenseDoc.data();
-      if (data && ['active', 'on_trial', 'subscribed', 'past_due'].includes(data.status)) {
-        return res.status(200).json({ success: true, license: data });
+    
+    const cleanEmail = (email || "").toString().toLowerCase().trim();
+    const cleanKey = (orderId || "").toString().trim();
+
+    if (!cleanEmail && !cleanKey) {
+      return res.status(400).json({ error: "Missing email or order ID" });
+    }
+
+    const validStatuses = ['active', 'on_trial', 'subscribed', 'past_due', 'paid'];
+
+    if (db) {
+      // 1. Direct lookup by email doc ID
+      if (cleanEmail) {
+        const licenseDoc = await db.collection("licenses").doc(cleanEmail).get();
+        if (licenseDoc.exists) {
+          const data = licenseDoc.data();
+          if (data && validStatuses.includes(data.status)) {
+            return res.status(200).json({ success: true, license: data });
+          }
+        }
+      }
+
+      // 2. Query by license_key if key provided
+      if (cleanKey) {
+        const keyQuery = await db.collection("licenses").where("license_key", "==", cleanKey).limit(1).get();
+        if (!keyQuery.empty) {
+          const data = keyQuery.docs[0].data();
+          if (data && validStatuses.includes(data.status)) {
+            return res.status(200).json({ success: true, license: data });
+          }
+        }
+
+        // 3. Query by order_id (string or number)
+        const orderQuery = await db.collection("licenses").where("order_id", "==", cleanKey).limit(1).get();
+        if (!orderQuery.empty) {
+          const data = orderQuery.docs[0].data();
+          if (data && validStatuses.includes(data.status)) {
+            return res.status(200).json({ success: true, license: data });
+          }
+        }
+        
+        const orderNum = Number(cleanKey);
+        if (!isNaN(orderNum)) {
+          const orderNumQuery = await db.collection("licenses").where("order_id", "==", orderNum).limit(1).get();
+          if (!orderNumQuery.empty) {
+            const data = orderNumQuery.docs[0].data();
+            if (data && validStatuses.includes(data.status)) {
+              return res.status(200).json({ success: true, license: data });
+            }
+          }
+        }
+      }
+
+      // 4. Query by email field search if doc ID lookup didn't match directly
+      if (cleanEmail) {
+        const emailQuery = await db.collection("licenses").where("email", "==", cleanEmail).limit(1).get();
+        if (!emailQuery.empty) {
+          const data = emailQuery.docs[0].data();
+          if (data && validStatuses.includes(data.status)) {
+            return res.status(200).json({ success: true, license: data });
+          }
+        }
       }
     }
-    res.status(401).json({ error: "Invalid license" });
-  } catch (err) {
-    res.status(500).json({ error: "Internal error" });
+
+    return res.status(401).json({ error: "Invalid license" });
+  } catch (err: any) {
+    console.error("Error in /api/verify-license:", err);
+    return res.status(500).json({ error: "Internal error", details: err?.message });
   }
 });
 
