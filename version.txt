@@ -1,1 +1,1 @@
-Version 1.5.1 - SPC Rules configuration & Changelog update
+Version 1.5.2 - Bumped versionCode to 18 for Google Play release
